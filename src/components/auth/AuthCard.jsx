@@ -97,19 +97,56 @@ export const AuthCard = () => {
       }
     } catch (err) {
       console.error('Auth error:', err);
-      const rawMsg = err?.message || err?.msg || err?.error_description || '';
-      let displayMsg = typeof rawMsg === 'string' && rawMsg.trim() ? rawMsg : 'Something went wrong. Please try again.';
+      let rawMsg = '';
+      if (typeof err === 'string') {
+        rawMsg = err;
+      } else if (err && typeof err === 'object') {
+        rawMsg = err.message || err.msg || err.error_description || '';
+        if (!rawMsg || rawMsg === '{}') {
+          try { rawMsg = JSON.stringify(err); } catch (_) { rawMsg = ''; }
+        }
+      }
+      
+      let displayMsg = 'Something went wrong. Please try again.';
+      let action = null;
+
+      const isTimeoutOr504 =
+        err?.status === 504 ||
+        err?.name === 'AuthRetryableFetchError' ||
+        rawMsg.includes('504') ||
+        rawMsg.includes('Gateway') ||
+        rawMsg.includes('AuthRetryableFetchError');
+
+      if (isTimeoutOr504) {
+        displayMsg = 'The email verification service took longer than usual to respond. If you received a code in your email, you can enter it below; otherwise, please try again in a moment.';
+        action = {
+          label: 'Enter Verification Code',
+          onClick: () => setShowOtpVerification(true),
+        };
+      } else if (rawMsg && rawMsg !== '{}') {
+        displayMsg = rawMsg;
+      }
 
       if (displayMsg.includes('Invalid login credentials')) {
         displayMsg = 'Incorrect email or password. New here? Switch to "Create Account" below.';
       } else if (displayMsg.includes('already registered')) {
         setIsSignUp(false);
-        displayMsg = 'This email already has an account. Please sign in.';
-      } else if (displayMsg.includes('Error sending confirmation email')) {
-        displayMsg = 'SMTP delivery error: Resend rejected the email because the Sender Email in Supabase SMTP is not verified. Please set Sender email to onboarding@resend.dev.';
+        displayMsg = 'This email already has an account. Please sign in, or verify your code if pending.';
+        action = {
+          label: 'Enter OTP Code',
+          onClick: () => setShowOtpVerification(true),
+        };
+      } else if (displayMsg.includes('over_email_send_rate_limit') || displayMsg.includes('security purposes')) {
+        displayMsg = 'A verification code was already sent recently. Please check your email or enter your code.';
+        action = {
+          label: 'Enter Verification Code',
+          onClick: () => setShowOtpVerification(true),
+        };
+      } else if (displayMsg.includes('Error sending confirmation email') || displayMsg.includes('unexpected_failure')) {
+        displayMsg = 'Supabase SMTP error: Resend rejected sending the email. Please check your Resend API key and port (try 587 instead of 465), or switch to Gmail SMTP.';
       }
 
-      setAlert({ type: 'error', message: displayMsg });
+      setAlert({ type: 'error', message: displayMsg, action });
     } finally {
       setIsLoading(false);
     }
@@ -169,7 +206,18 @@ export const AuthCard = () => {
             ) : (
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             )}
-            <span className="leading-snug">{alert.message}</span>
+            <div className="flex-1">
+              <p className="leading-snug">{alert.message}</p>
+              {alert.action && (
+                <button
+                  type="button"
+                  onClick={alert.action.onClick}
+                  className="mt-2 text-xs font-bold underline text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {alert.action.label} →
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -308,15 +356,26 @@ export const AuthCard = () => {
         </button>
 
         {/* Toggle sign in / sign up */}
-        <div className="mt-5 text-center text-xs text-slate-500">
-          {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <button
-            type="button"
-            onClick={() => { setIsSignUp(!isSignUp); setAlert(null); }}
-            className="font-bold text-emerald-700 hover:text-emerald-800 underline ml-1 transition-colors"
-          >
-            {isSignUp ? 'Sign In' : 'Create Account'}
-          </button>
+        <div className="mt-5 text-center text-xs text-slate-500 space-y-2">
+          <div>
+            {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+            <button
+              type="button"
+              onClick={() => { setIsSignUp(!isSignUp); setAlert(null); }}
+              className="font-bold text-emerald-700 hover:text-emerald-800 underline ml-1 transition-colors"
+            >
+              {isSignUp ? 'Sign In' : 'Create Account'}
+            </button>
+          </div>
+          <div>
+            <button
+              type="button"
+              onClick={() => { setShowOtpVerification(true); setAlert(null); }}
+              className="text-[11px] text-slate-400 hover:text-emerald-700 transition-colors cursor-pointer"
+            >
+              Have a verification code? <span className="underline font-medium text-emerald-600">Enter OTP</span>
+            </button>
+          </div>
         </div>
 
         {/* Security note */}
