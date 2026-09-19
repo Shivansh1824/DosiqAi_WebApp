@@ -1,6 +1,7 @@
-# Environment variables
+# Environment variables (strictly never committed)
 .env
-.env.local
+.env*
+*.env
 
 # Node modules & logs
 node_modules
