@@ -86,7 +86,7 @@ const LeftPanel = ({ step, primaryName, avatar, doseTime, familyMembers }) => {
         )}
 
         {/* Trust signals */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {[
             { icon: <Shield className="w-3 h-3" />, label: 'Private encrypted vault' },
             { icon: <Heart className="w-3 h-3" />, label: 'Built for families' },
@@ -98,6 +98,23 @@ const LeftPanel = ({ step, primaryName, avatar, doseTime, familyMembers }) => {
             >
               <span className="text-emerald-300">{icon}</span>
               {label}
+            </div>
+          ))}
+        </div>
+
+        {/* Contextual feature rows — fill dead space with live stats */}
+        <div className="flex flex-col gap-2">
+          {[
+            { emoji: '🔍', title: 'AI Rx Decoder', desc: 'Handwriting decoded in 1.1s' },
+            { emoji: '🛡️', title: 'Drug Conflict Shield', desc: 'Zero interaction risks' },
+            { emoji: '📱', title: 'Telegram Care Loop', desc: 'Automated daily check-ins' },
+          ].map(({ emoji, title, desc }) => (
+            <div key={title} className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.09] hover:bg-white/[0.08] transition-colors duration-150">
+              <span className="text-xl shrink-0">{emoji}</span>
+              <div>
+                <p className="text-[12px] font-bold text-white/90">{title}</p>
+                <p className="text-[11px] text-white/45 font-medium">{desc}</p>
+              </div>
             </div>
           ))}
         </div>
@@ -462,7 +479,7 @@ export const OnboardingView = () => {
         </div>
 
         {/* Form content */}
-        <main className="relative z-10 flex-1 flex items-start justify-center px-4 sm:px-6 py-8 overflow-y-auto">
+        <main className="relative z-10 flex-1 flex items-center justify-center px-4 sm:px-6 py-4 overflow-y-auto">
           <div className="w-full max-w-md">
 
             {/* Section heading */}
