@@ -205,10 +205,6 @@ export const LoginView = () => {
         {/* Top bar */}
         <div className="relative z-10 px-10 pt-8 flex items-center justify-between shrink-0">
           <DosiqLogo size="default" showBadge={false} variant="light" />
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-emerald-200 text-[11px] font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-            AI · Operational
-          </div>
         </div>
 
         {/* Main content: headline + showcase — fills remaining height evenly */}
@@ -269,13 +265,8 @@ export const LoginView = () => {
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 px-10 pb-7 flex items-center justify-between text-[11px] text-white/35 font-medium shrink-0 border-t border-white/[0.07] pt-4">
+        <div className="relative z-10 px-10 pb-7 flex items-center justify-center text-[11px] text-white/35 font-medium shrink-0 border-t border-white/[0.07] pt-4 text-center">
           <span>© 2026 dosiq AI · All rights reserved</span>
-          <div className="flex items-center gap-3">
-            <span>Private by Design</span>
-            <span>·</span>
-            <span>Multimodal Health OCR</span>
-          </div>
         </div>
       </div>
 
@@ -322,8 +313,8 @@ export const LoginView = () => {
           </div>
         </main>
 
-        <footer className="relative z-10 py-4 text-center text-[11px] text-slate-400 shrink-0">
-          Protected by 256-bit SSL encryption
+        <footer className="lg:hidden relative z-10 py-4 text-center text-[11px] text-slate-400 shrink-0">
+          © 2026 dosiq AI · All rights reserved
         </footer>
       </div>
 
