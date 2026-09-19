@@ -162,10 +162,12 @@ export const OtpVerificationView = ({ email, fullName, onBackToSignIn, onSuccess
             <KeyRound className="w-6 h-6" />
           </div>
           <h3 className="text-lg font-bold text-slate-900">Verify Your Account</h3>
-          <p className="text-xs text-slate-500 mt-1 leading-relaxed max-w-[280px]">
-            We sent a {numDigits}-digit confirmation code to{' '}
-            <strong className="text-slate-800 font-semibold break-all">{email}</strong>
-          </p>
+          <div className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-[300px]">
+            <span>We sent a {numDigits}-digit confirmation code to</span>
+            <span className="block mt-1 font-semibold text-slate-850 text-xs sm:text-sm tracking-tight text-slate-800 break-all">
+              {email}
+            </span>
+          </div>
         </div>
 
         {/* Alert message */}
