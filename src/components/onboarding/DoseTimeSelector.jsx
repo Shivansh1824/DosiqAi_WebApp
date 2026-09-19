@@ -90,15 +90,15 @@ export const DoseTimeSelector = ({ value, onChange }) => {
               key={key}
               type="button"
               onClick={() => setOpenSlot(key)}
-              className="group flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-200 active:scale-[0.97]"
+              className="group flex flex-col items-center gap-1 py-2 px-1.5 rounded-xl border-2 border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-200 active:scale-[0.97]"
             >
-              <span className="text-lg">{emoji}</span>
-              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide group-hover:text-emerald-600 transition-colors">
+              <span className="text-base">{emoji}</span>
+              <span className="text-[10px] font-semibold text-slate-400 uppercase group-hover:text-emerald-600 transition-colors">
                 {label}
               </span>
-              <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3 text-emerald-500 opacity-70" />
-                <span className="text-[12px] font-black text-slate-700 group-hover:text-emerald-700 transition-colors" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <div className="flex items-center gap-0.5">
+                <Clock className="w-2.5 h-2.5 text-emerald-500 opacity-70" />
+                <span className="text-[11px] font-black text-slate-700 group-hover:text-emerald-700 transition-colors" style={{ fontVariantNumeric: 'tabular-nums' }}>
                   {fmt(value[key])}
                 </span>
               </div>

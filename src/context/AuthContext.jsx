@@ -190,17 +190,27 @@ export const AuthProvider = ({ children }) => {
 
     // 2. Insert each family member (skip if empty)
     if (familyMembers.length > 0) {
-      const rows = familyMembers.map(m => ({
-        user_id: user.id,
-        name: m.name.trim() || m.relationship,
-        relationship: m.relationship,
-        phone_number: m.phone?.trim() || null,
-        avatar_url: m.avatar || null,
-        morning_dose_time:   m.doseTime.morning   + ':00',
-        afternoon_dose_time: m.doseTime.afternoon + ':00',
-        night_dose_time:     m.doseTime.night     + ':00',
-        onboarding_completed: true,
-      }));
+      const rows = familyMembers.map(m => {
+        const resolvedGender = m.gender || (
+          ['Father', 'Brother', 'Son'].includes(m.relationship) ? 'male' :
+          ['Mother', 'Sister', 'Daughter'].includes(m.relationship) ? 'female' : null
+        );
+        const approxDob = m.age ? `${new Date().getFullYear() - parseInt(m.age, 10)}-01-01` : null;
+
+        return {
+          user_id: user.id,
+          name: m.name.trim() || m.relationship,
+          relationship: m.relationship,
+          gender: resolvedGender,
+          date_of_birth: approxDob,
+          phone_number: m.phone?.trim() || null,
+          avatar_url: m.avatar || null,
+          morning_dose_time:   m.doseTime.morning   + ':00',
+          afternoon_dose_time: m.doseTime.afternoon + ':00',
+          night_dose_time:     m.doseTime.night     + ':00',
+          onboarding_completed: true,
+        };
+      });
       const { error: familyError } = await supabase.from('family_members').insert(rows);
       if (familyError) throw familyError;
     }

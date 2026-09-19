@@ -1,21 +1,24 @@
 import React, { useState, useCallback } from 'react';
 import {
-  ArrowRight, CheckCircle2, Sparkles, Users, Phone, User,
-  MessageCircle, Clock, Loader2, Shield, Heart, Zap,
+  ArrowRight, CheckCircle2, Phone, User,
+  Clock, Loader2, Users, MessageCircle,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { DosiqLogo } from '../common/DosiqLogo';
 import { AvatarPicker } from './AvatarPicker';
 import { DoseTimeSelector } from './DoseTimeSelector';
-import { FamilyMemberCard } from './FamilyMemberCard';
+import { FamilyMemberModal } from './FamilyMemberModal';
+import { OnboardingLeftPanel } from './OnboardingLeftPanel';
 
 // ── Preset quick-add buttons for family members ──────────────────────────────
 const FAMILY_PRESETS = [
-  { label: 'Dad',    emoji: '👨', relationship: 'Father'  },
-  { label: 'Mom',    emoji: '👩', relationship: 'Mother'  },
-  { label: 'Spouse', emoji: '💑', relationship: 'Spouse'  },
-  { label: 'Child',  emoji: '🧒', relationship: 'Son'     },
-  { label: 'Custom', emoji: '➕', relationship: 'Other'   },
+  { label: 'Dad',     emoji: '👨', relationship: 'Father'  },
+  { label: 'Mom',     emoji: '👩', relationship: 'Mother'  },
+  { label: 'Spouse',  emoji: '💑', relationship: 'Spouse'  },
+  { label: 'Child',   emoji: '🧒', relationship: 'Child'   },
+  { label: 'Brother', emoji: '👦', relationship: 'Brother' },
+  { label: 'Sister',  emoji: '👧', relationship: 'Sister'  },
+  { label: 'Other',   emoji: '➕', relationship: 'Other'   },
 ];
 
 const DEFAULT_DOSE = { morning: '08:00', afternoon: '14:00', night: '20:00' };
@@ -29,210 +32,23 @@ const newMember = (relationship) => ({
   doseTime: { ...DEFAULT_DOSE },
 });
 
-// ── Left Panel — dynamic content per step ────────────────────────────────────
-const LeftPanel = ({ step, primaryName, avatar, doseTime, familyMembers }) => {
-  const isStep1 = step === 1;
 
-  return (
-    <div
-      className="hidden lg:flex lg:w-[52%] xl:w-[54%] relative flex-col overflow-hidden"
-      style={{
-        background: 'radial-gradient(ellipse 90% 80% at 20% -10%, #0d9488 0%, #065f46 35%, #064e3b 70%, #022c22 100%)',
-      }}
-    >
-      {/* Dot-grid texture */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.06]"
-        style={{ backgroundImage: 'radial-gradient(circle, #ffffff 1px, transparent 1px)', backgroundSize: '28px 28px' }}
-      />
-      {/* Atmospheric glows */}
-      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-emerald-400/10 rounded-full blur-[130px] pointer-events-none" />
-      <div className="absolute -bottom-40 right-10 w-[500px] h-[500px] bg-teal-300/8 rounded-full blur-[150px] pointer-events-none" />
-
-      {/* Logo */}
-      <div className="relative z-10 px-10 pt-8 shrink-0">
-        <DosiqLogo size="default" showBadge={false} variant="light" />
-      </div>
-
-      {/* Main content */}
-      <div className="relative z-10 flex-1 flex flex-col justify-center px-10 py-8 gap-6">
-
-        {/* Step badge */}
-        <div className="inline-flex items-center gap-2 self-start px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 text-xs font-semibold">
-          <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
-          {isStep1 ? 'Step 1 of 2 — Your Profile' : 'Step 2 of 2 — Family Network'}
-        </div>
-
-        {/* Headline — morphs per step */}
-        <div>
-          <h1
-            className="font-extrabold tracking-tight text-white leading-[1.15] max-w-lg"
-            style={{ fontSize: 'clamp(1.6rem, 2.2vw, 2.4rem)', textWrap: 'balance' }}
-          >
-            {isStep1 ? 'Setting up your primary health dossier.' : 'Connecting your family care network.'}
-          </h1>
-          <p className="text-white/55 text-sm leading-relaxed mt-3 max-w-md" style={{ textWrap: 'pretty' }}>
-            {isStep1
-              ? 'Personalise your vault profile — your photo, preferred name, and daily medication routine so dosiq AI serves you perfectly.'
-              : 'Add profiles for the people you care for. Each family member gets their own dossier with separate medication schedules, lab history, and Telegram check-ins.'}
-          </p>
-        </div>
-
-        {/* Live reactive preview card */}
-        {isStep1 ? (
-          <Step1PreviewCard name={primaryName} avatar={avatar} doseTime={doseTime} />
-        ) : (
-          <Step2PreviewCard members={familyMembers} primaryName={primaryName} />
-        )}
-
-        {/* Trust signals */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {[
-            { icon: <Shield className="w-3 h-3" />, label: 'Private encrypted vault' },
-            { icon: <Heart className="w-3 h-3" />, label: 'Built for families' },
-            { icon: <Zap className="w-3 h-3" />, label: '2-minute setup' },
-          ].map(({ icon, label }) => (
-            <div
-              key={label}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-white/70 text-[11px] font-medium"
-            >
-              <span className="text-emerald-300">{icon}</span>
-              {label}
-            </div>
-          ))}
-        </div>
-
-        {/* Contextual feature rows — fill dead space with live stats */}
-        <div className="flex flex-col gap-2">
-          {[
-            { emoji: '🔍', title: 'AI Rx Decoder', desc: 'Handwriting decoded in 1.1s' },
-            { emoji: '🛡️', title: 'Drug Conflict Shield', desc: 'Zero interaction risks' },
-            { emoji: '📱', title: 'Telegram Care Loop', desc: 'Automated daily check-ins' },
-          ].map(({ emoji, title, desc }) => (
-            <div key={title} className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.09] hover:bg-white/[0.08] transition-colors duration-150">
-              <span className="text-xl shrink-0">{emoji}</span>
-              <div>
-                <p className="text-[12px] font-bold text-white/90">{title}</p>
-                <p className="text-[11px] text-white/45 font-medium">{desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="relative z-10 px-10 pb-7 text-center text-[11px] text-white/35 font-medium border-t border-white/[0.07] pt-4 shrink-0">
-        © 2026 dosiq AI · All rights reserved
-      </div>
-    </div>
-  );
-};
-
-// ── Step 1 live preview card ──────────────────────────────────────────────────
-const Step1PreviewCard = ({ name, avatar, doseTime }) => {
-  const initials = name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
-  const isPreset = avatar?.startsWith('preset-');
-  const PRESET_EMOJIS = { 'preset-1': '👨‍⚕️','preset-2':'👩‍⚕️','preset-3':'🧑‍💼','preset-4':'👴','preset-5':'👩','preset-6':'🧑' };
-
-  return (
-    <div className="rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/[0.12] shadow-2xl shadow-black/30 p-4">
-      <div className="flex items-center gap-3 mb-4">
-        <div
-          className="w-12 h-12 rounded-full border-2 border-white/30 flex items-center justify-center overflow-hidden flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #064e3b, #0d9488)' }}
-        >
-          {avatar && !isPreset
-            ? <img src={avatar} alt="you" className="w-full h-full object-cover" />
-            : isPreset
-            ? <span className="text-2xl">{PRESET_EMOJIS[avatar]}</span>
-            : <span className="text-base font-black text-white/90">{initials}</span>
-          }
-        </div>
-        <div>
-          <p className="font-bold text-white text-sm">{name || 'Your Name'}</p>
-          <p className="text-emerald-300 text-[11px] font-medium">Primary Account · Self</p>
-        </div>
-        <div className="ml-auto flex items-center gap-1 text-[10px] text-emerald-300 font-semibold">
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          Active
-        </div>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: 'Morning', time: doseTime.morning, icon: '🌅' },
-          { label: 'Afternoon', time: doseTime.afternoon, icon: '☀️' },
-          { label: 'Night', time: doseTime.night, icon: '🌙' },
-        ].map(({ label, time, icon }) => (
-          <div key={label} className="flex flex-col items-center gap-1 p-2 rounded-xl bg-white/[0.06] border border-white/[0.08]">
-            <span className="text-lg">{icon}</span>
-            <span className="text-[10px] text-white/50 font-medium">{label}</span>
-            <span className="text-[11px] font-bold text-white font-variant-numeric tabular-nums">
-              {time || '--:--'}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// ── Step 2 live preview card ──────────────────────────────────────────────────
-const Step2PreviewCard = ({ members, primaryName }) => {
-  const allProfiles = [
-    { name: primaryName || 'You', relationship: 'Self', isYou: true },
-    ...members.map(m => ({ name: m.name || m.relationship, relationship: m.relationship, isYou: false })),
-  ];
-  return (
-    <div className="rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/[0.12] shadow-2xl shadow-black/30 p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Users className="w-4 h-4 text-emerald-300" />
-        <span className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">Family Vault</span>
-        <span className="ml-auto text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-semibold border border-emerald-400/20">
-          {allProfiles.length} {allProfiles.length === 1 ? 'Dossier' : 'Dossiers'}
-        </span>
-      </div>
-      <div className="space-y-2">
-        {allProfiles.map((p, i) => (
-          <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.06] border border-white/[0.08]">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white/90 shrink-0"
-              style={{ background: p.isYou ? 'linear-gradient(135deg,#064e3b,#0d9488)' : 'linear-gradient(135deg,#1e3a5f,#0369a1)' }}
-            >
-              {p.name ? p.name.charAt(0).toUpperCase() : '?'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-bold text-white truncate">{p.name || '—'}</p>
-              <p className="text-[10px] text-white/50">{p.relationship}</p>
-            </div>
-            {p.isYou && (
-              <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-semibold">Primary</span>
-            )}
-          </div>
-        ))}
-        {allProfiles.length === 1 && (
-          <p className="text-center text-[11px] text-white/35 py-2">
-            Add family members → they appear here
-          </p>
-        )}
-      </div>
-    </div>
-  );
-};
 
 // ── Step 1 Form ───────────────────────────────────────────────────────────────
 const Step1Form = ({ data, onChange, onNext }) => {
-  const errors = {};
-  if (!data.name.trim()) errors.name = 'Your name is required';
+  const [touched, setTouched] = useState(false);
+  const isNameEmpty = !data.name.trim();
 
   const handleNext = () => {
-    if (errors.name) return;
+    setTouched(true);
+    if (isNameEmpty) return;
     onNext();
   };
 
   return (
     <div className="flex flex-col gap-5">
       {/* Avatar */}
-      <div className="flex flex-col items-center py-2">
+      <div className="flex flex-col items-center py-1">
         <AvatarPicker
           name={data.name}
           value={data.avatar}
@@ -240,30 +56,50 @@ const Step1Form = ({ data, onChange, onNext }) => {
         />
       </div>
 
-      {/* Name */}
+      {/* Name (Required) */}
       <div>
-        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-          Your Full Name
-        </label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+            Your Full Name <span className="text-red-500 font-bold">*</span>
+          </label>
+          <span className="text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300">
+            Required
+          </span>
+        </div>
         <div className="relative">
           <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
           <input
             type="text"
             value={data.name}
-            onChange={(e) => onChange({ name: e.target.value })}
+            onChange={(e) => {
+              onChange({ name: e.target.value });
+              if (!touched) setTouched(true);
+            }}
             placeholder="e.g. Shivansh Rana"
-            className={`w-full pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 ${errors.name ? 'border-red-300' : 'border-slate-200'} focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 bg-white transition-colors duration-150`}
+            className={`w-full pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 ${
+              touched && isNameEmpty ? 'border-red-400 bg-red-50/20' : 'border-slate-200 bg-white'
+            } focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 transition-colors duration-150`}
           />
         </div>
-        {errors.name && <p className="text-red-500 text-[11px] mt-1 font-medium">{errors.name}</p>}
+        {touched && isNameEmpty ? (
+          <p className="text-red-500 text-[11px] mt-1.5 font-semibold flex items-center gap-1">
+            <span>⚠️</span> Your name is required to personalize dose schedules and medical summaries.
+          </p>
+        ) : (
+          <p className="text-[11px] text-slate-400 mt-1">Pre-filled from your verified account · edit anytime.</p>
+        )}
       </div>
 
-      {/* Mobile */}
+      {/* Mobile (Optional) */}
       <div>
-        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-          Your Mobile Number
-          <span className="ml-1.5 text-[10px] font-normal text-slate-400 normal-case">(for Telegram care-loop check-ins)</span>
-        </label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+            Mobile Number
+          </label>
+          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+            Optional
+          </span>
+        </div>
         <div className="relative">
           <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
           <input
@@ -274,13 +110,21 @@ const Step1Form = ({ data, onChange, onNext }) => {
             className="w-full pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 border-slate-200 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 bg-white transition-colors duration-150"
           />
         </div>
+        <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+          Used for Telegram &amp; WhatsApp reminders. You can fill it now or connect it later in your dashboard.
+        </p>
       </div>
 
-      {/* Dose Times */}
+      {/* Dose Times (Preset applied) */}
       <div>
-        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-          Your Daily Dose Routine
-        </label>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+            Daily Dose Routine
+          </label>
+          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+            Defaults ready · click slot to customize
+          </span>
+        </div>
         <DoseTimeSelector
           value={data.doseTime}
           onChange={(doseTime) => onChange({ doseTime })}
@@ -291,8 +135,8 @@ const Step1Form = ({ data, onChange, onNext }) => {
       <button
         type="button"
         onClick={handleNext}
-        disabled={!!errors.name}
-        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-sm transition-all duration-200 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 active:scale-[0.98]"
+        disabled={isNameEmpty}
+        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm transition-all duration-200 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 active:scale-[0.98]"
       >
         Continue to Family Members
         <ArrowRight className="w-4 h-4" />
@@ -303,105 +147,211 @@ const Step1Form = ({ data, onChange, onNext }) => {
 
 // ── Step 2 Form ───────────────────────────────────────────────────────────────
 const Step2Form = ({ members, onAdd, onUpdate, onRemove, onComplete, loading }) => {
+  // Modal state: null = closed, { type:'new', relationship } or { type:'edit', member }
+  const [modal, setModal] = useState(null);
+
+  const openNew = (relationship) => setModal({ type: 'new', relationship });
+  const openEdit = (member) => setModal({ type: 'edit', member });
+  const closeModal = () => setModal(null);
+
+  const handleSave = (formData) => {
+    if (modal?.type === 'new') {
+      if (Array.isArray(formData)) {
+        formData.forEach(m => onAdd(m));
+      } else {
+        onAdd(formData);
+      }
+    } else if (modal?.type === 'edit') {
+      onUpdate(modal.member.id, { ...modal.member, ...formData });
+    }
+  };
+
+  const handleRemove = () => {
+    if (modal?.type === 'edit') onRemove(modal.member.id);
+  };
+
+  // Avatar display helper for pills
+  const PRESET_EMOJIS = {
+    'preset-1':'👨‍⚕️','preset-2':'👩‍⚕️','preset-3':'🧑‍💼',
+    'preset-4':'👴','preset-5':'👩','preset-6':'🧑',
+  };
+
   return (
-    <div className="flex flex-col gap-5">
-      {/* Quick-add chips */}
-      <div>
-        <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-          Add Family Members
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {FAMILY_PRESETS.map((p) => {
-            const alreadyAdded = members.some(m => m.relationship === p.relationship);
-            return (
-              <button
-                key={p.label}
-                type="button"
-                onClick={() => !alreadyAdded && onAdd(p.relationship)}
-                disabled={alreadyAdded && p.relationship !== 'Other'}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border-2 text-sm font-bold transition-all duration-200 ${
-                  alreadyAdded && p.relationship !== 'Other'
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-600 opacity-60 cursor-default'
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 active:scale-95'
-                }`}
-              >
-                <span>{p.emoji}</span>
-                {alreadyAdded && p.relationship !== 'Other' ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                ) : (
-                  '+'
-                )}
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Family member cards */}
-      {members.length > 0 && (
-        <div className="flex flex-col gap-3 max-h-[36vh] overflow-y-auto pr-1">
-          {members.map((m) => (
-            <FamilyMemberCard
-              key={m.id}
-              member={m}
-              onChange={(updated) => onUpdate(m.id, updated)}
-              onRemove={() => onRemove(m.id)}
-            />
-          ))}
-        </div>
-      )}
-
-      {members.length === 0 && (
-        <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-8 text-center">
-          <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-          <p className="text-sm text-slate-400 font-medium">No family members added yet</p>
-          <p className="text-xs text-slate-300 mt-0.5">You can add them any time from the dashboard.</p>
-        </div>
-      )}
-
-      {/* Telegram tip */}
-      <div className="flex items-start gap-3 p-3.5 rounded-xl bg-sky-50 border border-sky-200">
-        <MessageCircle className="w-4 h-4 text-sky-500 mt-0.5 shrink-0" />
+    <>
+      <div className="flex flex-col gap-4">
+        {/* Quick-add chips */}
         <div>
-          <p className="text-xs font-bold text-sky-800">Telegram Care Loop</p>
-          <p className="text-[11px] text-sky-600 mt-0.5">
-            After setup, connect the Telegram bot to start sending automated medication check-ins.
-            Phone numbers you've added are already linked.
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+              Add Family Members
+            </label>
+            <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+              Optional · Can add anytime later
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {FAMILY_PRESETS.map((p) => {
+              const isUnique = ['Father', 'Mother', 'Spouse'].includes(p.relationship);
+              const alreadyAdded = isUnique && members.some(m => m.relationship === p.relationship);
+              const count = members.filter(m =>
+                p.relationship === 'Child'
+                  ? ['Child', 'Son', 'Daughter'].includes(m.relationship)
+                  : m.relationship === p.relationship
+              ).length;
+
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => !alreadyAdded && openNew(p.relationship)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 text-sm font-bold transition-all duration-200 ${
+                    alreadyAdded
+                      ? 'border-emerald-300 bg-emerald-50 text-emerald-600 opacity-60 cursor-default'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-700 active:scale-95'
+                  }`}
+                >
+                  <span>{p.emoji}</span>
+                  {alreadyAdded ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  ) : count > 0 && !isUnique ? (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full font-black">+{count}</span>
+                  ) : (
+                    '+'
+                  )}
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Added member pills */}
+        {members.length > 0 ? (
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+              {members.length} Member{members.length > 1 ? 's' : ''} Added
+              <span className="ml-1.5 font-normal normal-case text-slate-400">· click to edit, ×  to remove</span>
+            </label>
+            <div className="flex flex-col gap-2">
+              {members.map((m) => {
+                const isPhoto  = m.avatar && !m.avatar.startsWith('preset-');
+                const isPreset = m.avatar?.startsWith('preset-');
+                const PRESET_EMOJIS_MAP = {'preset-1':'👨‍⚕️','preset-2':'👩‍⚕️','preset-3':'🧑‍💼','preset-4':'👴','preset-5':'👩','preset-6':'🧑'};
+                const initial  = (m.name || m.relationship).charAt(0).toUpperCase();
+
+                return (
+                  <div
+                    key={m.id}
+                    className="group flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/40 cursor-pointer transition-all duration-200"
+                    onClick={() => openEdit(m)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && openEdit(m)}
+                    aria-label={`Edit ${m.name || m.relationship}`}
+                  >
+                    {/* Mini avatar */}
+                    <div
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm overflow-hidden shrink-0 border-2 border-white shadow-sm"
+                      style={{ background: 'linear-gradient(135deg,#064e3b,#0d9488)' }}
+                    >
+                      {isPhoto
+                        ? <img src={m.avatar} alt="" className="w-full h-full object-cover" />
+                        : isPreset
+                        ? <span className="text-lg">{PRESET_EMOJIS_MAP[m.avatar]}</span>
+                        : <span className="text-sm font-black text-white/90">{initial}</span>
+                      }
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{m.name || m.relationship}</p>
+                      <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5 flex-wrap">
+                        <span>{m.relationship}</span>
+                        {m.age && (
+                          <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.2 rounded font-semibold text-[10px]">
+                            {m.age} yrs
+                          </span>
+                        )}
+                        {m.phone && <span>· {m.phone}</span>}
+                      </p>
+                    </div>
+
+                    {/* Dose badge */}
+                    <div className="hidden sm:flex items-center gap-1 text-[10px] text-emerald-600 font-semibold bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg shrink-0">
+                      <span>🌅 {m.doseTime?.morning}</span>
+                      <span className="text-emerald-200">·</span>
+                      <span>🌙 {m.doseTime?.night}</span>
+                    </div>
+
+                    {/* Remove X */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onRemove(m.id); }}
+                      className="w-7 h-7 rounded-full bg-slate-100 hover:bg-red-100 hover:text-red-600 flex items-center justify-center text-slate-400 transition-all duration-150 shrink-0 opacity-0 group-hover:opacity-100"
+                      aria-label={`Remove ${m.name || m.relationship}`}
+                    >
+                      <span className="text-base leading-none font-bold">×</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-6 text-center">
+            <Users className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-400 font-medium">No family members added yet</p>
+            <p className="text-xs text-slate-300 mt-0.5">You can always add them from the dashboard too.</p>
+          </div>
+        )}
+
+        {/* Telegram tip */}
+        <div className="flex items-start gap-3 p-3 rounded-xl bg-sky-50 border border-sky-200">
+          <MessageCircle className="w-4 h-4 text-sky-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-sky-800">Telegram Care Loop</p>
+            <p className="text-[11px] text-sky-600 mt-0.5">
+              Phone numbers you've entered are pre-linked. Connect the bot after setup for 1-tap check-ins.
+            </p>
+          </div>
+        </div>
+
+        {/* CTAs */}
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={onComplete}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold text-sm transition-all duration-200 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 active:scale-[0.98]"
+          >
+            {loading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Setting up your vault…</>
+            ) : (
+              <><CheckCircle2 className="w-4 h-4" /> Complete Setup &amp; Launch Vault</>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onComplete}
+            disabled={loading}
+            className="w-full py-2.5 rounded-xl text-slate-500 hover:text-slate-700 text-xs font-semibold transition-colors duration-150"
+          >
+            Skip for now &amp; open dashboard →
+          </button>
         </div>
       </div>
 
-      {/* CTAs */}
-      <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={onComplete}
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold text-sm transition-all duration-200 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 active:scale-[0.98]"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Setting up your vault…
-            </>
-          ) : (
-            <>
-              <CheckCircle2 className="w-4 h-4" />
-              Complete Setup &amp; Launch Vault
-            </>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={onComplete}
-          disabled={loading}
-          className="w-full py-2.5 rounded-xl text-slate-500 hover:text-slate-700 text-xs font-semibold transition-colors duration-150"
-        >
-          Skip for now &amp; open dashboard →
-        </button>
-      </div>
-    </div>
+      {/* Family member modal */}
+      <FamilyMemberModal
+        isOpen={!!modal}
+        member={modal?.type === 'edit' ? modal.member : null}
+        existingMembers={members}
+        defaultRelationship={modal?.relationship || modal?.member?.relationship || 'Child'}
+        onSave={handleSave}
+        onRemove={handleRemove}
+        onClose={closeModal}
+      />
+    </>
   );
 };
 
@@ -430,7 +380,7 @@ export const OnboardingView = () => {
 
   const updatePrimary = useCallback((patch) => setPrimary(p => ({ ...p, ...patch })), []);
 
-  const addMember     = (rel) => setFamilyMembers(ms => [...ms, newMember(rel)]);
+  const addMember     = (formData) => setFamilyMembers(ms => [...ms, { ...newMember(formData.relationship), ...formData }]);
   const updateMember  = (id, updated) => setFamilyMembers(ms => ms.map(m => m.id === id ? updated : m));
   const removeMember  = (id) => setFamilyMembers(ms => ms.filter(m => m.id !== id));
 
@@ -448,7 +398,7 @@ export const OnboardingView = () => {
   return (
     <div className="min-h-screen flex overflow-hidden">
       {/* ── Left Panel ── */}
-      <LeftPanel
+      <OnboardingLeftPanel
         step={step}
         primaryName={primary.name}
         avatar={primary.avatar}
