@@ -40,29 +40,27 @@ In real-world elderly care, patients frequently forget doses and ignore mobile p
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Technology Stack & Architectural Decisions
 
-- **Frontend:** React 18, Vite, Tailwind CSS, Lucide React, Recharts, Radix UI
-- **Design System:** Dark clinical slate (`#0F172A`), emerald accents (`#10B981`), teal highlights, glassmorphism
-- **Backend & Database:** Supabase PostgreSQL with Row-Level Security (RLS) and encrypted Storage
-- **AI / Multimodal:** Google APIs (Vision & clinical text normalization)
-- **Messaging Integration:** Telegram Bot API (Live Demo / Evaluation) & WhatsApp Cloud API (Production Roadmap)
+We deliberately selected a high-velocity, reliable stack designed to prevent build friction and eliminate runtime hydration bugs:
+
+| Layer | Selected Technology | Architectural Rationale |
+| :--- | :--- | :--- |
+| **Frontend Core** | **React 18 + Vite (TypeScript)** | Chosen over Next.js to eliminate hydration mismatch errors with interactive charts/canvases, avoid `"use client"` overhead, and provide instant sub-second Hot Module Replacement (HMR). |
+| **Styling & Design** | **Tailwind CSS + Radix UI** | Dark Clinical Slate (`#0F172A`) & Emerald (`#10B981`) glassmorphic theme. Radix provides unstyled, accessible modals, drawers, and tabs without bulky UI bloat. |
+| **Icons & Visuals** | **Lucide React** | Clean, lightweight, clinical iconography. |
+| **Data Visualization** | **Recharts** | Renders dynamic biometric trend curves (Fasting Glucose, HbA1c, Blood Pressure, Cholesterol) with color-coded safety threshold bands. |
+| **Backend & Database** | **Supabase (PostgreSQL + Storage)** | Relational data model with Row-Level Security (RLS) for multi-profile isolation, real-time sync, and encrypted storage buckets for medical documents. |
+| **Clinical Intelligence** | **Google Gemini 2.5 Flash** | Multimodal clinical vision model for high-accuracy handwritten Rx decoding, shorthand translation (`1-0-1`, `BD`, `PC`), and conflict detection. |
+| **Care Loop (Demo)** | **Telegram Bot API (`@dosiq_care_bot`)** | Zero-friction live evaluation with interactive inline buttons (`[ ✅ Took Dose ]` / `[ ❌ Skipped ]`) and zero sandbox limits. |
+| **Care Loop (Roadmap)**| **WhatsApp Cloud API** | Target channel for regional elderly patient production rollout. |
+| **Testing Sandbox** | **In-App Interactive Simulator** | On-dashboard live preview drawer for instant judge evaluation without needing external devices. |
 
 ---
 
-## 🧪 Testing the Telegram Care Loop
+## 💬 The Care Loop Status
 
-To test the interactive bot before launching the web app:
+- **Bot Identity:** `@dosiq_care_bot` (*Dosiq Ai- Health Assistant*)
+- **Verification Status:** **Tested & Operational.** Two-way handshake, interactive medication reminder dispatch, and real-time button callback confirmation have been validated in isolation.
+- **Application Integration:** Awaiting connection to the Supabase data model, scheduled reminder engine, and caregiver web dashboard.
 
-1. Create a bot on Telegram via `@BotFather` and retrieve your `TELEGRAM_BOT_TOKEN`.
-2. Get your personal numerical Telegram ID from `@userinfobot`.
-3. Configure your `.env` file:
-   ```env
-   TELEGRAM_BOT_TOKEN=your_bot_token_here
-   TELEGRAM_CHAT_ID=your_chat_id_here
-   ```
-4. Run the standalone test script:
-   ```bash
-   node test-telegram-bot.js
-   ```
-5. Check your Telegram app: tap the interactive `[ ✅ Took Dose ]` button to verify two-way adherence confirmation!
