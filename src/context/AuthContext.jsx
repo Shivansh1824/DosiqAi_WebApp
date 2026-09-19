@@ -8,6 +8,7 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentFamilyMember, setCurrentFamilyMember] = useState(null);
+  const [isOnboarded, setIsOnboarded] = useState(false);
 
   // Auto-provision or fetch primary 'Self' profile in family_members
   const ensurePrimaryProfile = async (currentUser) => {
@@ -24,8 +25,10 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (existingProfiles && existingProfiles.length > 0) {
-        setCurrentFamilyMember(existingProfiles[0]);
-        return existingProfiles[0];
+        const primary = existingProfiles[0];
+        setCurrentFamilyMember(primary);
+        setIsOnboarded(!!primary.onboarding_completed);
+        return primary;
       }
 
       // Provision primary profile
@@ -49,12 +52,14 @@ export const AuthProvider = ({ children }) => {
         .single();
 
       if (insertError) {
-        const fallback = { id: 'self-default', name: primaryName, relationship: 'Self' };
+        const fallback = { id: 'self-default', name: primaryName, relationship: 'Self', onboarding_completed: false };
         setCurrentFamilyMember(fallback);
+        setIsOnboarded(false);
         return fallback;
       }
 
       setCurrentFamilyMember(newProfile);
+      setIsOnboarded(false); // fresh signup — needs onboarding
       return newProfile;
     } catch (err) {
       console.error('Error in ensurePrimaryProfile:', err);
@@ -92,6 +97,7 @@ export const AuthProvider = ({ children }) => {
         await ensurePrimaryProfile(newSession.user);
       } else {
         setCurrentFamilyMember(null);
+        setIsOnboarded(false);
       }
       setLoading(false);
     });
@@ -159,11 +165,67 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
+  // Complete Onboarding — writes primary profile + family members to Supabase
+  const completeOnboarding = async ({ primary, familyMembers }) => {
+    if (!user) throw new Error('Not authenticated');
+
+    // 1. Upsert the Self row with onboarding data
+    const selfRow = {
+      user_id: user.id,
+      name: primary.name.trim(),
+      relationship: 'Self',
+      phone_number: primary.phone?.trim() || null,
+      avatar_url: primary.avatar || null,
+      morning_dose_time:   primary.doseTime.morning   + ':00',
+      afternoon_dose_time: primary.doseTime.afternoon + ':00',
+      night_dose_time:     primary.doseTime.night     + ':00',
+      onboarding_completed: true,
+    };
+
+    const { data: updatedSelf, error: selfError } = currentFamilyMember?.id && currentFamilyMember.id !== 'self-default'
+      ? await supabase.from('family_members').update(selfRow).eq('id', currentFamilyMember.id).select().single()
+      : await supabase.from('family_members').insert(selfRow).select().single();
+
+    if (selfError) throw selfError;
+
+    // 2. Insert each family member (skip if empty)
+    if (familyMembers.length > 0) {
+      const rows = familyMembers.map(m => ({
+        user_id: user.id,
+        name: m.name.trim() || m.relationship,
+        relationship: m.relationship,
+        phone_number: m.phone?.trim() || null,
+        avatar_url: m.avatar || null,
+        morning_dose_time:   m.doseTime.morning   + ':00',
+        afternoon_dose_time: m.doseTime.afternoon + ':00',
+        night_dose_time:     m.doseTime.night     + ':00',
+        onboarding_completed: true,
+      }));
+      const { error: familyError } = await supabase.from('family_members').insert(rows);
+      if (familyError) throw familyError;
+    }
+
+    // 3. Update Supabase auth metadata
+    await supabase.auth.updateUser({
+      data: {
+        full_name: primary.name.trim(),
+        onboarding_completed: true,
+        phone_number: primary.phone?.trim() || null,
+        avatar_url: primary.avatar || null,
+      },
+    });
+
+    // 4. Update local state — triggers App.jsx to render DashboardView
+    setCurrentFamilyMember(updatedSelf);
+    setIsOnboarded(true);
+  };
+
   // Sign Out
   const signOut = async () => {
     setUser(null);
     setSession(null);
     setCurrentFamilyMember(null);
+    setIsOnboarded(false);
     await supabase.auth.signOut().catch(() => {});
   };
 
@@ -171,6 +233,7 @@ export const AuthProvider = ({ children }) => {
     user,
     session,
     loading,
+    isOnboarded,
     currentFamilyMember,
     signInWithEmail,
     signUpWithEmail,
@@ -178,6 +241,7 @@ export const AuthProvider = ({ children }) => {
     verifyOtp,
     resendOtp,
     signOut,
+    completeOnboarding,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

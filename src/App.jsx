@@ -2,11 +2,12 @@ import React from 'react';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/auth/LoginView';
 import { DashboardView } from './components/dashboard/DashboardView';
+import { OnboardingView } from './components/onboarding/OnboardingView';
 import { Loader2 } from 'lucide-react';
 import { DosiqLogo } from './components/common/DosiqLogo';
 
 export function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, isOnboarded } = useAuth();
 
   if (loading) {
     return (
@@ -22,7 +23,10 @@ export function App() {
     );
   }
 
-  return user ? <DashboardView /> : <LoginView />;
+  if (!user) return <LoginView />;
+  if (!isOnboarded) return <OnboardingView />;
+  return <DashboardView />;
 }
 
 export default App;
+
