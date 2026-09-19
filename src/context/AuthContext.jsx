@@ -8,7 +8,6 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentFamilyMember, setCurrentFamilyMember] = useState(null);
-  const [isDemoUser, setIsDemoUser] = useState(false);
 
   // Auto-provision or fetch primary 'Self' profile in family_members
   const ensurePrimaryProfile = async (currentUser) => {
@@ -21,7 +20,7 @@ export const AuthProvider = ({ children }) => {
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.warn('Could not query family_members (RLS or table check):', error.message);
+        console.warn('Could not query family_members (RLS check):', error.message);
       }
 
       if (existingProfiles && existingProfiles.length > 0) {
@@ -49,9 +48,7 @@ export const AuthProvider = ({ children }) => {
         .single();
 
       if (insertError) {
-        console.warn('Auto-provisioning family member warning:', insertError.message);
-        // Fallback local member object
-        const fallback = { id: 'temp-self', name: primaryName, relationship: 'Self' };
+        const fallback = { id: 'self-default', name: primaryName, relationship: 'Self' };
         setCurrentFamilyMember(fallback);
         return fallback;
       }
@@ -92,7 +89,7 @@ export const AuthProvider = ({ children }) => {
 
       if (newSession?.user) {
         await ensurePrimaryProfile(newSession.user);
-      } else if (!isDemoUser) {
+      } else {
         setCurrentFamilyMember(null);
       }
       setLoading(false);
@@ -101,11 +98,10 @@ export const AuthProvider = ({ children }) => {
     return () => {
       subscription?.unsubscribe();
     };
-  }, [isDemoUser]);
+  }, []);
 
   // Sign In with Email and Password
   const signInWithEmail = async (email, password) => {
-    setIsDemoUser(false);
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
@@ -116,7 +112,6 @@ export const AuthProvider = ({ children }) => {
 
   // Sign Up with Email and Password
   const signUpWithEmail = async (email, password, fullName) => {
-    setIsDemoUser(false);
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
@@ -132,7 +127,6 @@ export const AuthProvider = ({ children }) => {
 
   // Google OAuth Sign In
   const signInWithGoogle = async () => {
-    setIsDemoUser(false);
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -143,63 +137,8 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  // 1-Click Judge / Demo Login Bypass
-  const signInWithDemo = async () => {
-    const demoEmail = 'judge.demo@dosiq.ai';
-    const demoPassword = 'DosiqDemoPassword2026!';
-    const demoName = 'Dr. Demo Evaluator (Judge)';
-
-    const setLocalDemoFallback = () => {
-      const mockUser = {
-        id: 'demo-caregiver-judge-id',
-        email: demoEmail,
-        user_metadata: { full_name: demoName },
-      };
-      setUser(mockUser);
-      setSession({ access_token: 'demo-token', user: mockUser });
-      setCurrentFamilyMember({
-        id: 'demo-self-id',
-        name: 'Dr. Demo Evaluator',
-        relationship: 'Self',
-        morning_dose_time: '08:00:00',
-        afternoon_dose_time: '14:00:00',
-        night_dose_time: '20:00:00',
-      });
-      setIsDemoUser(true);
-      return { user: mockUser };
-    };
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: demoEmail,
-        password: demoPassword,
-      });
-
-      if (!error && data?.session) {
-        setIsDemoUser(true);
-        return data;
-      }
-
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: demoEmail,
-        password: demoPassword,
-        options: { data: { full_name: demoName } },
-      });
-
-      if (!signUpError && signUpData?.session) {
-        setIsDemoUser(true);
-        return signUpData;
-      }
-
-      return setLocalDemoFallback();
-    } catch {
-      return setLocalDemoFallback();
-    }
-  };
-
   // Sign Out
   const signOut = async () => {
-    setIsDemoUser(false);
     setUser(null);
     setSession(null);
     setCurrentFamilyMember(null);
@@ -211,11 +150,9 @@ export const AuthProvider = ({ children }) => {
     session,
     loading,
     currentFamilyMember,
-    isDemoUser,
     signInWithEmail,
     signUpWithEmail,
     signInWithGoogle,
-    signInWithDemo,
     signOut,
   };
 
