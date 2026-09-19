@@ -1,0 +1,9 @@
+{
+  "name": "dosiq-ai-web-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:bot": "node test-telegram-bot.js"
+  }
+}
