@@ -97,17 +97,19 @@ export const AuthCard = () => {
       }
     } catch (err) {
       console.error('Auth error:', err);
-      if (err.message?.includes('Invalid login credentials')) {
-        setAlert({
-          type: 'error',
-          message: 'Incorrect email or password. New here? Switch to "Create Account" below.',
-        });
-      } else if (err.message?.includes('already registered')) {
+      const rawMsg = err?.message || err?.msg || err?.error_description || '';
+      let displayMsg = typeof rawMsg === 'string' && rawMsg.trim() ? rawMsg : 'Something went wrong. Please try again.';
+
+      if (displayMsg.includes('Invalid login credentials')) {
+        displayMsg = 'Incorrect email or password. New here? Switch to "Create Account" below.';
+      } else if (displayMsg.includes('already registered')) {
         setIsSignUp(false);
-        setAlert({ type: 'error', message: 'This email already has an account. Please sign in.' });
-      } else {
-        setAlert({ type: 'error', message: err.message || 'Something went wrong. Please try again.' });
+        displayMsg = 'This email already has an account. Please sign in.';
+      } else if (displayMsg.includes('Error sending confirmation email')) {
+        displayMsg = 'SMTP delivery error: Resend rejected the email because the Sender Email in Supabase SMTP is not verified. Please set Sender email to onboarding@resend.dev.';
       }
+
+      setAlert({ type: 'error', message: displayMsg });
     } finally {
       setIsLoading(false);
     }
