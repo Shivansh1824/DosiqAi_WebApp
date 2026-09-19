@@ -7,5 +7,9 @@
 node_modules
 npm-debug.log*
 
+# Local progress & reference trackers (never committed)
+progress-tracker.html
+*.tracker.html
+
 # System files
 .DS_Store
