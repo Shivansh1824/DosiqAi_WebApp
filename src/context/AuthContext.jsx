@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }) => {
 
       // Provision primary profile
       const primaryName = currentUser.user_metadata?.full_name ||
+        currentUser.user_metadata?.name ||
         (currentUser.email ? currentUser.email.split('@')[0] : 'Caregiver');
 
       const { data: newProfile, error: insertError } = await supabase
@@ -137,6 +138,27 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
+  // Verify OTP
+  const verifyOtp = async (email, token, type = 'signup') => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim().toLowerCase(),
+      token: token.trim(),
+      type,
+    });
+    if (error) throw error;
+    return data;
+  };
+
+  // Resend OTP
+  const resendOtp = async (email, type = 'signup') => {
+    const { data, error } = await supabase.auth.resend({
+      type,
+      email: email.trim().toLowerCase(),
+    });
+    if (error) throw error;
+    return data;
+  };
+
   // Sign Out
   const signOut = async () => {
     setUser(null);
@@ -153,6 +175,8 @@ export const AuthProvider = ({ children }) => {
     signInWithEmail,
     signUpWithEmail,
     signInWithGoogle,
+    verifyOtp,
+    resendOtp,
     signOut,
   };
 
