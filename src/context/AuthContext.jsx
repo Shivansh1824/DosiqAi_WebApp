@@ -149,8 +149,27 @@ export const AuthProvider = ({ children }) => {
     const demoPassword = 'DosiqDemoPassword2026!';
     const demoName = 'Dr. Demo Evaluator (Judge)';
 
+    const setLocalDemoFallback = () => {
+      const mockUser = {
+        id: 'demo-caregiver-judge-id',
+        email: demoEmail,
+        user_metadata: { full_name: demoName },
+      };
+      setUser(mockUser);
+      setSession({ access_token: 'demo-token', user: mockUser });
+      setCurrentFamilyMember({
+        id: 'demo-self-id',
+        name: 'Dr. Demo Evaluator',
+        relationship: 'Self',
+        morning_dose_time: '08:00:00',
+        afternoon_dose_time: '14:00:00',
+        night_dose_time: '20:00:00',
+      });
+      setIsDemoUser(true);
+      return { user: mockUser };
+    };
+
     try {
-      // Try signing in first
       const { data, error } = await supabase.auth.signInWithPassword({
         email: demoEmail,
         password: demoPassword,
@@ -161,15 +180,10 @@ export const AuthProvider = ({ children }) => {
         return data;
       }
 
-      // If user doesn't exist, create it
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email: demoEmail,
         password: demoPassword,
-        options: {
-          data: {
-            full_name: demoName,
-          },
-        },
+        options: { data: { full_name: demoName } },
       });
 
       if (!signUpError && signUpData?.session) {
@@ -177,43 +191,9 @@ export const AuthProvider = ({ children }) => {
         return signUpData;
       }
 
-      // If Supabase has email confirmation strictly enforced for signup, provide instant client session bypass
-      const mockDemoUser = {
-        id: 'demo-caregiver-judge-id',
-        email: demoEmail,
-        user_metadata: { full_name: demoName },
-      };
-      setUser(mockDemoUser);
-      setSession({ access_token: 'demo-token', user: mockDemoUser });
-      setCurrentFamilyMember({
-        id: 'demo-self-id',
-        name: 'Dr. Demo Evaluator',
-        relationship: 'Self',
-        morning_dose_time: '08:00:00',
-        afternoon_dose_time: '14:00:00',
-        night_dose_time: '20:00:00',
-      });
-      setIsDemoUser(true);
-      return { user: mockDemoUser };
-    } catch (err) {
-      console.warn('Demo login handled via fallback mode:', err.message);
-      const mockDemoUser = {
-        id: 'demo-caregiver-judge-id',
-        email: demoEmail,
-        user_metadata: { full_name: demoName },
-      };
-      setUser(mockDemoUser);
-      setSession({ access_token: 'demo-token', user: mockDemoUser });
-      setCurrentFamilyMember({
-        id: 'demo-self-id',
-        name: 'Dr. Demo Evaluator',
-        relationship: 'Self',
-        morning_dose_time: '08:00:00',
-        afternoon_dose_time: '14:00:00',
-        night_dose_time: '20:00:00',
-      });
-      setIsDemoUser(true);
-      return { user: mockDemoUser };
+      return setLocalDemoFallback();
+    } catch {
+      return setLocalDemoFallback();
     }
   };
 

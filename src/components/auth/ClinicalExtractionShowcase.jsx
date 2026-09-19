@@ -6,7 +6,6 @@ import {
   Send, 
   CheckCircle2, 
   Activity, 
-  Lock, 
   Cpu, 
   Pill 
 } from 'lucide-react';

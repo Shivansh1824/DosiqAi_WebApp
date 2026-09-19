@@ -3,16 +3,14 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   HeartPulse, 
   LogOut, 
-  User, 
   ShieldCheck, 
   Upload, 
   FileText, 
   Pill, 
-  Activity, 
   Send, 
-  Sparkles,
-  CheckCircle2,
-  Users
+  Sparkles, 
+  CheckCircle2, 
+  Users 
 } from 'lucide-react';
 
 export const DashboardView = () => {

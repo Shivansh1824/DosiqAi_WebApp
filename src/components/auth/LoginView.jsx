@@ -1,7 +1,7 @@
 import React from 'react';
 import { ClinicalExtractionShowcase } from './ClinicalExtractionShowcase';
 import { AuthCard } from './AuthCard';
-import { Activity, ShieldCheck, HeartPulse } from 'lucide-react';
+import { HeartPulse } from 'lucide-react';
 
 export const LoginView = () => {
   return (

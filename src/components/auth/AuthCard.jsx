@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
   User, 
   Mail, 
@@ -13,7 +13,6 @@ import {
   Loader2 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } from '../../lib/supabaseClient';
 
 // Popular domain list for typo detection
 const POPULAR_DOMAINS = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'];
@@ -50,16 +49,11 @@ export const AuthCard = () => {
   const [showPassword, setShowPassword] = useState(false);
   
   const [emailSuggestion, setEmailSuggestion] = useState(null);
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
-  
-  const [alert, setAlert] = useState(null); // { type: 'error' | 'success', message: '' }
+  const [alert, setAlert] = useState(null);
 
-  const debounceTimerRef = useRef(null);
-  const checkedEmailRef = useRef('');
-
-  // Check email typos
+  // Check email domain typos
   const checkEmailTypo = (inputEmail) => {
     const parts = inputEmail.split('@');
     if (parts.length !== 2) {
@@ -85,37 +79,7 @@ export const AuthCard = () => {
       }
     }
 
-    if (closestDomain) {
-      setEmailSuggestion(`${userPart}@${closestDomain}`);
-    } else {
-      setEmailSuggestion(null);
-    }
-  };
-
-  // Auto-detect if user exists in Supabase
-  const checkUserExists = async (inputEmail) => {
-    const trimmed = inputEmail.trim().toLowerCase();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmed)) return;
-
-    if (checkedEmailRef.current === trimmed) return;
-    checkedEmailRef.current = trimmed;
-
-    setIsCheckingEmail(true);
-    try {
-      // Check family_members or profiles by linked user email
-      const { data, error } = await supabase
-        .from('family_members')
-        .select('id')
-        .limit(1);
-
-      // Note: Supabase auth.users is protected by security definer, so we use signIn check or layout toggle
-      // If user is typing and hits enter, standard auth will route cleanly.
-    } catch (err) {
-      console.warn('Email status probe:', err);
-    } finally {
-      setIsCheckingEmail(false);
-    }
+    setEmailSuggestion(closestDomain ? `${userPart}@${closestDomain}` : null);
   };
 
   const handleEmailChange = (e) => {
@@ -123,18 +87,12 @@ export const AuthCard = () => {
     setEmail(value);
     setAlert(null);
     checkEmailTypo(value);
-
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      checkUserExists(value);
-    }, 400);
   };
 
   const applyEmailSuggestion = () => {
     if (emailSuggestion) {
       setEmail(emailSuggestion);
       setEmailSuggestion(null);
-      checkUserExists(emailSuggestion);
     }
   };
 
@@ -358,11 +316,6 @@ export const AuthCard = () => {
                 placeholder="name@family.com"
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-slate-100 placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
               />
-              {isCheckingEmail && (
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <Loader2 className="w-3.5 h-3.5 text-slate-400 animate-spin" />
-                </div>
-              )}
             </div>
 
             {/* Email Typo Suggestion Helper */}
