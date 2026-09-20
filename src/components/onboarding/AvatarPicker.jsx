@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { Camera, Upload } from 'lucide-react';
+import { compressAvatarFile } from '../../lib/imageUtils';
 
 // 6 clinical avatar presets — emoji-based so zero asset dependencies
 const PRESETS = [
@@ -26,12 +27,15 @@ export const AvatarPicker = ({ name = '', value, onChange }) => {
     ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     : '?';
 
-  const handleFile = (e) => {
+  const handleFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => onChange(ev.target.result);
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressAvatarFile(file, 380, 0.85);
+      onChange(compressed);
+    } catch (err) {
+      console.error('Error compressing avatar:', err);
+    }
   };
 
   return (

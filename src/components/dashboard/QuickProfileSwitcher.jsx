@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, CheckCircle2 } from 'lucide-react';
 
 const CATEGORY_COLORS = {
@@ -15,10 +15,10 @@ const CATEGORY_COLORS = {
 };
 
 export const QuickProfileSwitcher = ({ profiles, activeProfile, onProfileSelect }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
-  const ref = React.useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) setIsOpen(false);
     };
@@ -52,8 +52,12 @@ export const QuickProfileSwitcher = ({ profiles, activeProfile, onProfileSelect 
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 rounded-full border border-slate-200 bg-white shadow-sm hover:border-slate-300 transition-all active:scale-95 group"
       >
-        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black text-white shrink-0 ${activeColor}`}>
-          {initials}
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black text-white shrink-0 overflow-hidden ${activeColor}`}>
+          {activeProfile?.avatar && !activeProfile.avatar.startsWith('preset-') ? (
+            <img src={activeProfile.avatar} alt={activeProfile.name} className="w-full h-full object-cover" />
+          ) : (
+            initials
+          )}
         </div>
         <div className="flex flex-col items-start text-left">
           <span className="text-[10px] font-bold text-slate-400 uppercase leading-none tracking-widest -mb-0.5">Viewing</span>
@@ -81,8 +85,12 @@ export const QuickProfileSwitcher = ({ profiles, activeProfile, onProfileSelect 
                 className={`w-full flex items-center justify-between px-3 py-2 text-left hover:bg-slate-50 transition-colors ${isActive ? 'bg-slate-50' : ''}`}
               >
                 <div className="flex items-center gap-2.5">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black text-white ${pColor}`}>
-                    {pInitials}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black text-white shrink-0 overflow-hidden ${pColor}`}>
+                    {p.avatar && !p.avatar.startsWith('preset-') ? (
+                      <img src={p.avatar} alt={p.name} className="w-full h-full object-cover" />
+                    ) : (
+                      pInitials
+                    )}
                   </div>
                   <div>
                     <p className={`text-xs font-bold ${isActive ? 'text-slate-900' : 'text-slate-700'}`}>{p.name}</p>

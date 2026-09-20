@@ -48,6 +48,7 @@ export const FamilyMemberModal = ({
     age: '',
     phone: '',
     avatar: null,
+    telegram_username: '',
     doseTime: { ...DEFAULT_DOSE },
   });
 
@@ -71,6 +72,7 @@ export const FamilyMemberModal = ({
           age: member.age || '',
           phone: member.phone || '',
           avatar: member.avatar || null,
+          telegram_username: member.telegram_username || '',
           doseTime: member.doseTime || { ...DEFAULT_DOSE },
         });
       } else {
@@ -82,6 +84,7 @@ export const FamilyMemberModal = ({
           age: '',
           phone: '',
           avatar: null,
+          telegram_username: '',
           doseTime: { ...DEFAULT_DOSE },
         });
         setChildren([
@@ -135,7 +138,7 @@ export const FamilyMemberModal = ({
           gender: c.gender,
           age: c.age ? String(c.age).trim() : null,
           phone: '',
-          avatar: null,
+          avatar: c.avatar || null,
           doseTime: resolvedDoseTime,
         };
       });
@@ -446,6 +449,30 @@ export const FamilyMemberModal = ({
                     onChange={(e) => update({ phone: e.target.value })}
                     placeholder="+91 98765 43210"
                     className="w-full pl-9 pr-3 py-2.5 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 border-slate-200 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 bg-white transition-colors duration-150"
+                  />
+                </div>
+              </div>
+
+              {/* Telegram Handle */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Telegram Handle
+                  </label>
+                  <span className="text-[9px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                    Optional · For 1-tap reminders
+                  </span>
+                </div>
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    @
+                  </div>
+                  <input
+                    type="text"
+                    value={form.telegram_username?.replace(/^@/, '') || ''}
+                    onChange={(e) => update({ telegram_username: e.target.value ? `@${e.target.value.replace(/^@/, '')}` : '' })}
+                    placeholder="username"
+                    className="w-full pl-8 pr-3 py-2.5 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 border-slate-200 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 bg-white transition-colors duration-150 font-mono"
                   />
                 </div>
               </div>

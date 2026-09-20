@@ -111,12 +111,14 @@ const TABS = [
   { id: 'family',   label: 'Family',            icon: Users,        desc: 'Profile management' },
 ];
 
-export const SidebarLayout = ({ activeTab, onTabChange, children }) => {
+export const SidebarLayout = ({ activeTab, onTabChange, children, profiles = [] }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const closeMenu = () => setMobileMenuOpen(false);
 
   const activeTab_ = TABS.find(t => t.id === activeTab);
+  const linkedCount = profiles.filter(p => p.telegram_linked).length;
+  const totalMembers = profiles.length || 1;
 
   return (
     <div className="min-h-screen flex text-slate-900 selection:bg-emerald-500/20 selection:text-emerald-900 font-sans"
@@ -158,15 +160,7 @@ export const SidebarLayout = ({ activeTab, onTabChange, children }) => {
 
         {/* Sidebar Header */}
         <div className="h-16 flex items-center px-5 shrink-0 border-b border-white/10 relative">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center">
-              <span className="text-white font-black text-sm">D</span>
-            </div>
-            <div>
-              <p className="text-white font-black text-sm tracking-tight leading-none">dosiq</p>
-              <p className="text-emerald-300 text-[9px] font-bold uppercase tracking-widest leading-none mt-0.5">AI · Medical Co-Pilot</p>
-            </div>
-          </div>
+          <DosiqLogo size="default" variant="light" showBadge={false} />
           <button
             type="button"
             className="ml-auto p-1.5 rounded-xl text-white/50 hover:text-white hover:bg-white/10 lg:hidden transition-colors"
@@ -221,8 +215,10 @@ export const SidebarLayout = ({ activeTab, onTabChange, children }) => {
               <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-white leading-tight">Care Loop Active</p>
-              <p className="text-[10px] text-emerald-300/70 font-medium">2 of 3 members linked</p>
+              <p className="text-xs font-bold text-white leading-tight">Care Loop Status</p>
+              <p className="text-[10px] text-emerald-300/70 font-medium">
+                {linkedCount} of {totalMembers} members linked
+              </p>
             </div>
           </div>
           <p className="text-[10px] font-semibold text-emerald-400/40 uppercase tracking-widest text-center">© 2026 Dosiq AI</p>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText, FlaskConical, Scan, BookOpen,
   Zap, CheckCircle2, Clock, Filter, Download
@@ -37,7 +37,7 @@ const SampleExtractionFlow = ({ type, onComplete }) => {
   const [stage, setStage] = useState(0);
   const [done, setDone] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (stage >= EXTRACTION_STAGES.length - 1) {
       setDone(true);
       setTimeout(() => onComplete?.(), 1000);
@@ -124,7 +124,7 @@ const DocCard = ({ doc }) => {
 
 // ─── Clinical Vault Section ───────────────────────────────────────────────────
 
-export const ClinicalVaultSection = ({ documents = [], onUpload }) => {
+export const ClinicalVaultSection = ({ documents = [], onUpload, onDocumentAdded }) => {
   const [activeFilter, setActiveFilter] = useState('All');
   const [extractingType, setExtractingType] = useState(null);
   const [extractionDone, setExtractionDone] = useState({ rx: false, lab: false });
@@ -141,6 +141,17 @@ export const ClinicalVaultSection = ({ documents = [], onUpload }) => {
   const handleExtractionComplete = (type) => {
     setExtractingType(null);
     setExtractionDone(prev => ({ ...prev, [type]: true }));
+    onDocumentAdded?.({
+      id: `doc_${Date.now()}`,
+      type: type === 'rx' ? 'Prescription' : 'Blood Test',
+      diagnosis: type === 'rx' ? 'Clinical Prescription Protocol' : 'Complete Metabolic & Lipid Panel',
+      doctor: type === 'rx' ? 'Dr. R. Mehta, MD (Cardiology)' : 'SRL Diagnostics Laboratory',
+      clinic: 'Clinical Vault',
+      date: new Date().toISOString().split('T')[0],
+      verified: true,
+      badge: type === 'rx' ? 'Rx Decoded' : 'Lab Analyzed',
+      ai_status: 'completed',
+    });
   };
 
   return (

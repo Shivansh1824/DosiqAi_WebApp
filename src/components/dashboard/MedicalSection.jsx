@@ -5,7 +5,7 @@ import { UploadDocumentModal }  from './UploadDocumentModal';
 import { CareLoopSection }      from './CareLoopSection';
 import { QuickProfileSwitcher } from './QuickProfileSwitcher';
 
-export const MedicalSection = ({ profiles, activeProfile, onProfileSelect, documents = [], medications = [], events = [] }) => {
+export const MedicalSection = ({ profiles, activeProfile, onProfileSelect, documents = [], medications = [], events = [], onDocumentAdded }) => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const firstName = activeProfile?.name?.split(' ')[0] || activeProfile?.relationship || 'this profile';
 
@@ -39,6 +39,7 @@ export const MedicalSection = ({ profiles, activeProfile, onProfileSelect, docum
           <ClinicalVaultSection
             documents={documents}
             onUpload={() => setUploadOpen(true)}
+            onDocumentAdded={onDocumentAdded}
           />
         </div>
 
@@ -58,6 +59,8 @@ export const MedicalSection = ({ profiles, activeProfile, onProfileSelect, docum
       <UploadDocumentModal
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
+        activeProfile={activeProfile}
+        onUploadSuccess={onDocumentAdded}
       />
     </div>
   );

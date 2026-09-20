@@ -27,7 +27,7 @@ const QUICK_SAMPLES = [
   { key: 'lab', label: '⚡ Sample Lab Report',    sub: 'SRL Diagnostics · HbA1c + Lipid · 2026' },
 ];
 
-export const UploadDocumentModal = ({ open, onClose }) => {
+export const UploadDocumentModal = ({ open, onClose, activeProfile, onUploadSuccess }) => {
   const [dragging, setDragging] = useState(false);
   const [file, setFile]         = useState(null);
   const [docType, setDocType]   = useState(null);
@@ -65,6 +65,20 @@ export const UploadDocumentModal = ({ open, onClose }) => {
     await new Promise(r => setTimeout(r, 1800));
     setUploading(false);
     setDone(true);
+
+    onUploadSuccess?.({
+      id: `doc_${Date.now()}`,
+      family_member_id: activeProfile?.id || null,
+      type: docType,
+      diagnosis: docType === 'Blood Test' ? 'Complete Hemogram & Lipid Profile' : `${docType} Consultation`,
+      doctor: docType === 'Blood Test' ? 'Metropolis Diagnostics' : 'Consulting Physician, MD',
+      clinic: 'Clinical Vault',
+      date: new Date().toISOString().split('T')[0],
+      verified: true,
+      badge: docType === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded',
+      ai_status: 'completed',
+    });
+
     setTimeout(() => onClose?.(), 1200);
   };
 

@@ -1,6 +1,7 @@
-import React from 'react';
-import { Trash2 } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Trash2, Camera, Upload } from 'lucide-react';
 import { DoseTimeSelector } from './DoseTimeSelector';
+import { compressAvatarFile } from '../../lib/imageUtils';
 
 /**
  * ChildDossierCard
@@ -16,14 +17,55 @@ export const ChildDossierCard = ({
   onUpdate,
   onRemove,
 }) => {
+  const childFileRef = useRef(null);
+
+  const handleChildPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const compressed = await compressAvatarFile(file, 360, 0.85);
+        onUpdate({ avatar: compressed });
+      } catch (err) {
+        console.error('Error uploading child photo:', err);
+      }
+    }
+  };
+
   return (
     <div className="p-3.5 rounded-2xl bg-slate-50/90 border-2 border-slate-200 flex flex-col gap-3">
       {/* Child Card Header */}
       <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
         <div className="flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center shrink-0">
-            {index + 1}
-          </span>
+          {/* Child Photo Thumbnail / Avatar Picker */}
+          <div className="relative group">
+            <div
+              onClick={() => childFileRef.current?.click()}
+              className="w-7 h-7 rounded-full overflow-hidden border border-emerald-500 bg-emerald-50 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-emerald-400 transition-all shrink-0"
+              title="Click to upload child's photo"
+            >
+              {child.avatar && !child.avatar.startsWith('preset-') ? (
+                <img src={child.avatar} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-sm">{child.gender === 'female' ? '👧' : '👦'}</span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => childFileRef.current?.click()}
+              className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-600 border border-white flex items-center justify-center text-white"
+              title="Upload photo"
+            >
+              <Camera className="w-2 h-2" />
+            </button>
+            <input
+              ref={childFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleChildPhoto}
+            />
+          </div>
+
           <span className="text-xs font-bold text-slate-800">
             {child.name.trim() || `Child #${index + 1}`} ({ordinal} Child)
           </span>
