@@ -1,6 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import os from 'os';
+import express from 'express';
+import dotenv from 'dotenv';
+import ws from 'ws';
+
+if (!globalThis.WebSocket) {
+  globalThis.WebSocket = ws;
+}
+dotenv.config();
 
 function getLocalIp() {
   try {
@@ -20,7 +28,38 @@ function getLocalIp() {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'api-dev-server',
+      configureServer(server) {
+        const app = express();
+        app.use(express.json({ limit: '25mb' }));
+
+        app.post('/api/check-prescription', async (req, res) => {
+          try {
+            const { default: handler } = await import('./api/check-prescription.js');
+            return await handler(req, res);
+          } catch (err) {
+            console.error('[DEV API] Error in check-prescription:', err);
+            return res.status(500).json({ error: err.message });
+          }
+        });
+
+        app.post('/api/check-report', async (req, res) => {
+          try {
+            const { default: handler } = await import('./api/check-report.js');
+            return await handler(req, res);
+          } catch (err) {
+            console.error('[DEV API] Error in check-report:', err);
+            return res.status(500).json({ error: err.message });
+          }
+        });
+
+        server.middlewares.use(app);
+      },
+    },
+  ],
   server: {
     port: 5173,
     host: true,

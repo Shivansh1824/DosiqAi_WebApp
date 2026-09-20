@@ -1,3 +1,7 @@
+import ws from 'ws';
+if (!globalThis.WebSocket) {
+  globalThis.WebSocket = ws;
+}
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
 
@@ -7,8 +11,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Initialize Gemini SDK with the Common API Key
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY_COMMON });
+// Initialize Gemini SDK with dedicated Report API Key (fallback to Common)
+const ai = new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_KEY_REPORT || process.env.GEMINI_API_KEY_COMMON 
+});
 
 export default async function handler(req, res) {
   // CORS configuration
@@ -32,11 +38,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing cloud_file_key' });
     }
 
+    // Normalize storage path (strip bucket prefix if present)
+    const storagePath = cloud_file_key.replace(/^medical-vault\//, '');
+
     // 1. Download file securely from Supabase
     const { data: fileData, error: downloadError } = await supabase
       .storage
       .from('medical-vault')
-      .download(cloud_file_key);
+      .download(storagePath);
 
     if (downloadError || !fileData) {
       console.error("Supabase Download Error:", downloadError);
@@ -44,8 +53,8 @@ export default async function handler(req, res) {
     }
 
     // Determine mimeType
-    const mimeType = cloud_file_key.toLowerCase().endsWith('.pdf') ? 'application/pdf' :
-                     cloud_file_key.toLowerCase().endsWith('.png') ? 'image/png' :
+    const mimeType = storagePath.toLowerCase().endsWith('.pdf') ? 'application/pdf' :
+                     storagePath.toLowerCase().endsWith('.png') ? 'image/png' :
                      'image/jpeg';
 
     // 2. Convert file Blob to Base64
@@ -79,9 +88,9 @@ You must return a strict, clean JSON object with this exact schema (no markdown 
   ]
 }`;
 
-    // 4. Call Gemini 3.8 Flash Lite with medium reasoning for instant multimodal classification
+    // 4. Call Gemini 3.8 Flash for instant multimodal classification
     const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash-lite',
+      model: 'gemini-3.8-flash',
       contents: [
         {
           role: 'user',
@@ -99,7 +108,6 @@ You must return a strict, clean JSON object with this exact schema (no markdown 
       config: {
         responseMimeType: 'application/json',
         temperature: 0.1, // Low temperature for high precision classification
-        thinkingConfig: { thinkingBudget: 1024 }, // Medium reasoning
       }
     });
 

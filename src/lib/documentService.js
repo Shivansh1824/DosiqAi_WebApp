@@ -141,7 +141,7 @@ export const processDocumentFilesForVault = async (userId, files = [], docType =
   let cloudFileKey = null;
   if (userId && finalBlob) {
     const uploadRes = await uploadFileToVault(userId, finalBlob, finalFileName, finalMime);
-    cloudFileKey = uploadRes.fullPath || uploadRes.path;
+    cloudFileKey = uploadRes.path;
   }
 
   return {

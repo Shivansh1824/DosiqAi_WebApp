@@ -313,6 +313,27 @@ export const UploadDocumentModal = ({
     }
   };
 
+  // User chose to switch to the correct category identified by Gemini AI
+  const handleSwitchCategoryAndSave = () => {
+    if (!currentDocPayload) return;
+    setShowInvalidModal(false);
+    setUploading(true);
+
+    const targetDocType = docType === 'Prescription' ? 'Blood Test' : 'Prescription';
+    const updatedPayload = {
+      ...currentDocPayload,
+      type: targetDocType,
+      diagnosis: targetDocType === 'Blood Test' ? 'Complete Diagnostic & Lipid Panel' : 'Clinical Prescription Protocol',
+      doctor: targetDocType === 'Blood Test' ? 'Metropolis Diagnostic Labs' : 'Consulting Physician, MD',
+      badge: currentDocPayload.page_count > 1 ? `${currentDocPayload.page_count} Pages Compiled` : (targetDocType === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded'),
+    };
+
+    onUploadSuccess?.(updatedPayload);
+    setUploading(false);
+    setDone(true);
+    setTimeout(() => onClose?.(), 1200);
+  };
+
   if (!open) return null;
 
   return (
@@ -907,6 +928,33 @@ export const UploadDocumentModal = ({
                     className="w-full py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors"
                   >
                     Cancel & Replace Invalid Images
+                  </button>
+                </>
+              ) : checkResult?.pages?.some(p => p.status === 'invalid_category') ? (
+                <>
+                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/80 flex flex-col gap-1.5 text-left">
+                    <div className="flex items-center gap-2 text-amber-800 font-bold text-xs">
+                      <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Wrong Category Detected by Gemini AI</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                      You selected <strong>{docType === 'Prescription' ? 'Prescription' : 'Lab Report'}</strong>, but Gemini identified this document as a <strong>{docType === 'Prescription' ? 'Laboratory / Blood Test Report' : 'Doctor Prescription'}</strong>.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSwitchCategoryAndSave}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] text-white font-black text-xs shadow-lg shadow-emerald-500/25 transition-all"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Convert to {docType === 'Prescription' ? 'Lab Report' : 'Prescription'} & Save to Vault</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowInvalidModal(false); setChecking(false); }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel & Replace File
                   </button>
                 </>
               ) : (
