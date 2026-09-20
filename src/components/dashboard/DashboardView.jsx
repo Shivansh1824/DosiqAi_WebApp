@@ -41,11 +41,13 @@ export const DashboardView = () => {
         )}
 
         {activeTab === 'medical' && (
-          <MedicalSection 
+          <MedicalSection
             profiles={profiles}
             activeProfile={activeProfile}
             onProfileSelect={setActiveProfile}
             documents={documents}
+            medications={medications}
+            events={CARE_LOOP_EVENTS}
           />
         )}
 

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
-  ArrowRight, CheckCircle2, Phone, User,
-  Clock, Loader2, Users, MessageCircle,
+  ArrowRight, ArrowLeft, CheckCircle2, Phone, User,
+  Clock, Loader2, Users, MessageCircle, LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { DosiqLogo } from '../common/DosiqLogo';
@@ -46,9 +46,9 @@ const Step1Form = ({ data, onChange, onNext }) => {
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       {/* Avatar */}
-      <div className="flex flex-col items-center py-1">
+      <div className="flex flex-col items-center">
         <AvatarPicker
           name={data.name}
           value={data.avatar}
@@ -76,14 +76,14 @@ const Step1Form = ({ data, onChange, onNext }) => {
               if (!touched) setTouched(true);
             }}
             placeholder="e.g. Shivansh Rana"
-            className={`w-full pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 ${
+            className={`w-full pl-10 pr-4 py-2.5 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 ${
               touched && isNameEmpty ? 'border-red-400 bg-red-50/20' : 'border-slate-200 bg-white'
             } focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 transition-colors duration-150`}
           />
         </div>
         {touched && isNameEmpty ? (
           <p className="text-red-500 text-[11px] mt-1.5 font-semibold flex items-center gap-1">
-            <span>⚠️</span> Your name is required to personalize dose schedules and medical summaries.
+            <span>⚠️</span> Your name is required.
           </p>
         ) : (
           <p className="text-[11px] text-slate-400 mt-1">Pre-filled from your verified account · edit anytime.</p>
@@ -107,11 +107,11 @@ const Step1Form = ({ data, onChange, onNext }) => {
             value={data.phone}
             onChange={(e) => onChange({ phone: e.target.value })}
             placeholder="+91 98765 43210"
-            className="w-full pl-10 pr-4 py-3 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 border-slate-200 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 bg-white transition-colors duration-150"
+            className="w-full pl-10 pr-4 py-2.5 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 border-slate-200 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 bg-white transition-colors duration-150"
           />
         </div>
-        <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-          Used for Telegram &amp; WhatsApp reminders. You can fill it now or connect it later in your dashboard.
+        <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+          Used for Telegram &amp; WhatsApp reminders · can connect anytime.
         </p>
       </div>
 
@@ -146,7 +146,7 @@ const Step1Form = ({ data, onChange, onNext }) => {
 };
 
 // ── Step 2 Form ───────────────────────────────────────────────────────────────
-const Step2Form = ({ members, onAdd, onUpdate, onRemove, onComplete, loading }) => {
+const Step2Form = ({ members, onAdd, onUpdate, onRemove, onComplete, loading, onBackToStep1 }) => {
   // Modal state: null = closed, { type:'new', relationship } or { type:'edit', member }
   const [modal, setModal] = useState(null);
 
@@ -338,6 +338,17 @@ const Step2Form = ({ members, onAdd, onUpdate, onRemove, onComplete, loading }) 
           >
             Skip for now &amp; open dashboard →
           </button>
+
+          {onBackToStep1 && (
+            <button
+              type="button"
+              onClick={onBackToStep1}
+              className="text-xs font-semibold text-slate-400 hover:text-slate-700 transition-colors flex items-center justify-center gap-1.5 pt-0.5"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to your profile</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -357,7 +368,7 @@ const Step2Form = ({ members, onAdd, onUpdate, onRemove, onComplete, loading }) 
 
 // ── Main OnboardingView ───────────────────────────────────────────────────────
 export const OnboardingView = () => {
-  const { user, completeOnboarding } = useAuth();
+  const { user, completeOnboarding, signOut } = useAuth();
 
   // Derive prefilled name from auth metadata or email
   const derivedName =
@@ -414,10 +425,43 @@ export const OnboardingView = () => {
           style={{ backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '22px 22px' }}
         />
 
-        {/* Mobile logo */}
-        <header className="lg:hidden relative z-10 w-full border-b border-slate-200 bg-white px-5 py-3.5 flex items-center justify-between shrink-0">
-          <DosiqLogo size="default" showBadge={false} />
-          <span className="text-xs font-semibold text-slate-500">Step {step} of 2</span>
+        {/* Top header bar with right-side corner navigation */}
+        <header className="relative z-10 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-5 py-3.5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="lg:hidden">
+              <DosiqLogo size="default" showBadge={false} />
+            </div>
+            <div className="hidden lg:flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <span className="text-slate-700 font-bold">Onboarding Setup</span>
+              <span className="text-slate-300">•</span>
+              <span>{step === 1 ? 'Step 1: Your Profile' : 'Step 2: Family Members'}</span>
+            </div>
+          </div>
+
+          {/* Right-side corner controls */}
+          <div className="flex items-center gap-2">
+            {step === 2 && (
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70 border border-slate-200 transition-all duration-150 active:scale-95"
+                title="Go back to Step 1"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Back to Step 1</span>
+                <span className="sm:hidden">Step 1</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={signOut}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:text-red-600 bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 shadow-sm transition-all duration-150 active:scale-95"
+              title="Exit and return to login page"
+            >
+              <LogOut className="w-3.5 h-3.5 text-slate-400" />
+              <span>Back to Login</span>
+            </button>
+          </div>
         </header>
 
         {/* Step progress bar */}
@@ -433,11 +477,7 @@ export const OnboardingView = () => {
           <div className="w-full max-w-md">
 
             {/* Section heading */}
-            <div className="mb-6">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold uppercase tracking-wider mb-3">
-                <Clock className="w-3 h-3" />
-                {step === 1 ? 'Step 1 of 2' : 'Step 2 of 2'}
-              </div>
+            <div className="mb-4">
               <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">
                 {step === 1 ? 'Your Profile' : 'Family Members'}
               </h2>
@@ -450,7 +490,7 @@ export const OnboardingView = () => {
 
             {/* Error banner */}
             {error && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
+              <div className="mb-3 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
                 {error}
               </div>
             )}
@@ -470,18 +510,8 @@ export const OnboardingView = () => {
                 onRemove={removeMember}
                 onComplete={handleComplete}
                 loading={loading}
+                onBackToStep1={() => setStep(1)}
               />
-            )}
-
-            {/* Back button for step 2 */}
-            {step === 2 && (
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="mt-3 w-full py-2 text-xs font-semibold text-slate-400 hover:text-slate-600 transition-colors duration-150"
-              >
-                ← Back to your profile
-              </button>
             )}
           </div>
         </main>

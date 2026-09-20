@@ -59,7 +59,7 @@ export const DoseTimeSelector = ({ value, onChange }) => {
 
   return (
     <>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2.5">
         {/* Preset chips */}
         <div className="flex gap-2">
           {PRESETS.map((p) => (
@@ -67,7 +67,7 @@ export const DoseTimeSelector = ({ value, onChange }) => {
               key={p.id}
               type="button"
               onClick={() => selectPreset(p)}
-              className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 px-1 rounded-xl border-2 text-center transition-all duration-200 ${
+              className={`flex-1 flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl border-2 text-center transition-all duration-200 ${
                 activePreset === p.id
                   ? 'border-emerald-500 bg-emerald-50 shadow-sm shadow-emerald-200/60'
                   : 'border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/40'
@@ -90,7 +90,7 @@ export const DoseTimeSelector = ({ value, onChange }) => {
               key={key}
               type="button"
               onClick={() => setOpenSlot(key)}
-              className="group flex flex-col items-center gap-1 py-2 px-1.5 rounded-xl border-2 border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-200 active:scale-[0.97]"
+              className="group flex flex-col items-center gap-1 py-1.5 px-1.5 rounded-xl border-2 border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50 transition-all duration-200 active:scale-[0.97]"
             >
               <span className="text-base">{emoji}</span>
               <span className="text-[10px] font-semibold text-slate-400 uppercase group-hover:text-emerald-600 transition-colors">
