@@ -88,28 +88,49 @@ You must return a strict, clean JSON object with this exact schema (no markdown 
   ]
 }`;
 
-    // 4. Call Gemini 3.8 Flash for instant multimodal classification
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: SYSTEM_PROMPT },
+    // 4. Call Gemini 3.8 Flash with automatic fallback to Gemini 3.6 Flash if Google experiences high demand (503/429)
+    const candidateModels = ['gemini-3.8-flash', 'gemini-3.6-flash'];
+    let response;
+    let lastErr;
+
+    for (const modelName of candidateModels) {
+      try {
+        response = await ai.models.generateContent({
+          model: modelName,
+          contents: [
             {
-              inlineData: {
-                data: base64Data,
-                mimeType: mimeType
-              }
+              role: 'user',
+              parts: [
+                { text: SYSTEM_PROMPT },
+                {
+                  inlineData: {
+                    data: base64Data,
+                    mimeType: mimeType
+                  }
+                }
+              ]
             }
-          ]
+          ],
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.1, // Low temperature for high precision classification
+          }
+        });
+        break; // Successfully generated content
+      } catch (err) {
+        lastErr = err;
+        const isRetryable = err.status === 503 || err.status === 429 || err.message?.includes('high demand');
+        if (isRetryable) {
+          console.warn(`[Gemini] ${modelName} hit high demand (${err.status || 503}). Falling back to next model...`);
+          continue;
         }
-      ],
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.1, // Low temperature for high precision classification
+        throw err;
       }
-    });
+    }
+
+    if (!response) {
+      throw lastErr || new Error('All Gemini model candidates failed');
+    }
 
     const resultText = response.text;
     
