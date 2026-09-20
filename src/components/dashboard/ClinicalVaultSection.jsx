@@ -78,7 +78,7 @@ const SampleExtractionFlow = ({ type, onComplete }) => {
 
 // ─── Document Card ────────────────────────────────────────────────────────────
 
-const DocCard = ({ doc }) => {
+const DocCard = ({ doc, onClick }) => {
   const meta = TYPE_META[doc.type] || TYPE_META['Prescription'];
   const color = DOC_COLOR[meta.color] || DOC_COLOR.emerald;
   const Icon = meta.icon;
@@ -88,7 +88,10 @@ const DocCard = ({ doc }) => {
     : '—';
 
   return (
-    <div className={`flex flex-col gap-3 p-4 rounded-2xl bg-white border ${color.border} hover:shadow-md transition-all duration-200 group cursor-pointer`}>
+    <div 
+      className={`flex flex-col gap-3 p-4 rounded-2xl bg-white border ${color.border} hover:shadow-md transition-all duration-200 group cursor-pointer`}
+      onClick={() => onClick?.(doc)}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className={`w-9 h-9 rounded-xl ${color.bg} ${color.icon} flex items-center justify-center shrink-0 border ${color.border}`}>
           <Icon className="w-4 h-4" />
@@ -124,7 +127,7 @@ const DocCard = ({ doc }) => {
 
 // ─── Clinical Vault Section ───────────────────────────────────────────────────
 
-export const ClinicalVaultSection = ({ documents = [], onUpload, onDocumentAdded }) => {
+export const ClinicalVaultSection = ({ documents = [], onUpload, onDocumentAdded, onDocumentClick }) => {
   const [activeFilter, setActiveFilter] = useState('All');
   const [extractingType, setExtractingType] = useState(null);
   const [extractionDone, setExtractionDone] = useState({ rx: false, lab: false });
@@ -227,7 +230,7 @@ export const ClinicalVaultSection = ({ documents = [], onUpload, onDocumentAdded
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map(doc => (
-            <DocCard key={doc.id} doc={doc} />
+            <DocCard key={doc.id} doc={doc} onClick={onDocumentClick} />
           ))}
         </div>
       ) : (

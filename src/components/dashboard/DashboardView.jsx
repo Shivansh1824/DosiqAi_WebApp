@@ -110,6 +110,8 @@ export const DashboardView = () => {
           verified: d.ai_analysis_status === 'completed',
           badge: d.type === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded',
           ai_status: d.ai_analysis_status || 'completed',
+          cloud_file_key: d.cloud_file_key || null,
+          ai_analysis_result: d.ai_analysis_result || null,
         }));
         setDocuments(formattedDocs);
       }

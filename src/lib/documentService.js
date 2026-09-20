@@ -209,6 +209,12 @@ export const extractDocumentData = async (cloudFileKey, docType) => {
   const data = await response.json();
   if (!data.success) throw new Error(data.error || 'Clinical extraction returned unsuccessful');
 
+  // Persist result to documents table by cloud_file_key
+  await supabase
+    .from('documents')
+    .update({ ai_analysis_result: data.extraction, ai_analysis_status: 'completed' })
+    .eq('cloud_file_key', cloudFileKey);
+
   return data.extraction;
 };
 

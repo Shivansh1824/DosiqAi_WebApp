@@ -8,7 +8,7 @@ import { FamilyMemberModal } from '../onboarding/FamilyMemberModal';
 import { QrCodeSyncCard } from './QrCodeSyncCard';
 import { DocumentPhotoGallery } from './DocumentPhotoGallery';
 import { ImageZoomModal } from './ImageZoomModal';
-import { generateSyncSessionId, processDocumentFilesForVault, checkDocumentValidity } from '../../lib/documentService';
+import { generateSyncSessionId, processDocumentFilesForVault, checkDocumentValidity, extractDocumentData } from '../../lib/documentService';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 
@@ -25,6 +25,7 @@ export const UploadDocumentModal = ({
   profiles = [],
   activeProfile,
   onUploadSuccess,
+  onExtractionComplete,
   onAddMember,
 }) => {
   const { user } = useAuth();
@@ -50,6 +51,7 @@ export const UploadDocumentModal = ({
   const [checkError, setCheckError] = useState(null);    // API/network error
   const [currentCloudKey, setCurrentCloudKey] = useState(null); // Key of uploaded file
   const [currentDocPayload, setCurrentDocPayload] = useState(null);
+  const [extracting, setExtracting] = useState(false);
   
   // FamilyMemberModal state for inline member addition
   const [familyModalOpen, setFamilyModalOpen] = useState(false);
@@ -253,7 +255,16 @@ export const UploadDocumentModal = ({
         // All pages are valid – proceed directly
         onUploadSuccess?.(newDocPayload);
         setDone(true);
-        setTimeout(() => onClose?.(), 1400);
+        // Run clinical AI extraction
+        setExtracting(true);
+        try {
+          const result = await extractDocumentData(cloudFileKey, docType);
+          onExtractionComplete?.({ ...newDocPayload, ai_analysis_result: result });
+        } catch (extractErr) {
+          console.error('Clinical extraction error:', extractErr);
+        }
+        setExtracting(false);
+        onClose?.();
       } else {
         // Some pages are invalid – show the warning modal
         const bad = analysis.pages.filter(p => p.status !== 'valid');
@@ -305,7 +316,16 @@ export const UploadDocumentModal = ({
       setUploading(false);
       onUploadSuccess?.(cleanPayload);
       setDone(true);
-      setTimeout(() => onClose?.(), 1400);
+      // Run clinical AI extraction
+      setExtracting(true);
+      try {
+        const result = await extractDocumentData(newKey, docType);
+        onExtractionComplete?.({ ...cleanPayload, ai_analysis_result: result });
+      } catch (extractErr) {
+        console.error('Clinical extraction error:', extractErr);
+      }
+      setExtracting(false);
+      onClose?.();
     } catch (err) {
       console.error('Recompile error:', err);
       setUploading(false);
@@ -314,7 +334,7 @@ export const UploadDocumentModal = ({
   };
 
   // User chose to switch to the correct category identified by Gemini AI
-  const handleSwitchCategoryAndSave = () => {
+  const handleSwitchCategoryAndSave = async () => {
     if (!currentDocPayload) return;
     setShowInvalidModal(false);
     setUploading(true);
@@ -331,7 +351,16 @@ export const UploadDocumentModal = ({
     onUploadSuccess?.(updatedPayload);
     setUploading(false);
     setDone(true);
-    setTimeout(() => onClose?.(), 1200);
+    // Run clinical AI extraction with corrected type
+    setExtracting(true);
+    try {
+      const result = await extractDocumentData(currentCloudKey, targetDocType);
+      onExtractionComplete?.({ ...updatedPayload, ai_analysis_result: result });
+    } catch (extractErr) {
+      console.error('Clinical extraction error:', extractErr);
+    }
+    setExtracting(false);
+    onClose?.();
   };
 
   if (!open) return null;
@@ -820,7 +849,7 @@ export const UploadDocumentModal = ({
       />
 
       {/* AI VERIFICATION OVERLAY */}
-      {(checking || uploading) && (
+      {(checking || uploading || extracting) && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 backdrop-blur-md">
           <div className="relative w-[340px] sm:w-[400px] bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 p-8 flex flex-col items-center gap-6">
             {/* Animated Gemini Pulse Ring */}
@@ -834,11 +863,13 @@ export const UploadDocumentModal = ({
 
             <div className="text-center space-y-1.5">
               <p className="text-sm font-black text-slate-900">
-                {uploading ? 'Securing Document to Vault…' : `Gemini AI is Scanning ${docType === 'Blood Test' ? 'Lab Report' : 'Prescription'}…`}
+                {uploading ? 'Securing Document to Vault…' : extracting ? 'Clinical Intelligence Extracting…' : `Gemini AI is Scanning ${docType === 'Blood Test' ? 'Lab Report' : 'Prescription'}…`}
               </p>
               <p className="text-xs text-slate-400 font-medium leading-relaxed">
                 {uploading
                   ? 'Uploading your document securely to the encrypted clinical vault.'
+                  : extracting
+                  ? 'Gemini 3.8 Flash is decoding handwriting, normalizing dosage codes, and structuring clinical data.'
                   : 'Performing page-by-page medical document classification. Usually takes 2–4 seconds.'}
               </p>
             </div>
