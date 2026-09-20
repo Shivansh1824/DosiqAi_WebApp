@@ -659,8 +659,8 @@ export const UploadDocumentModal = ({
                     </label>
                   )}
 
-                  {/* Judge / Evaluator Fast-Track — hidden when a real PDF is uploaded */}
-                  {!isPdfLocked && (
+                  {/* Judge / Evaluator Fast-Track — only shown when no files have been uploaded */}
+                  {files.length === 0 && (
                     <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs">
                       <div className="flex items-center gap-2 min-w-0 pr-2">
                         <Zap className="w-4 h-4 text-amber-500 shrink-0" />
