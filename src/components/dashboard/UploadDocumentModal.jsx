@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   X, Upload, FileText, FlaskConical, ChevronLeft,
   UserPlus, CheckCircle2, Zap, ArrowRight,
-  Pill, Activity, Trash2, Check, Loader2, Sparkles,
+  Pill, Activity, Check, Loader2, Sparkles,
 } from 'lucide-react';
 import { FamilyMemberModal } from '../onboarding/FamilyMemberModal';
 import { QrCodeSyncCard } from './QrCodeSyncCard';
+import { DocumentPhotoGallery } from './DocumentPhotoGallery';
+import { ImageZoomModal } from './ImageZoomModal';
 import { generateSyncSessionId } from '../../lib/documentService';
 import { useAuth } from '../../context/AuthContext';
 
@@ -44,8 +46,9 @@ export const UploadDocumentModal = ({
   const [docType, setDocType] = useState(null); // 'Blood Test' | 'Prescription'
   const [sessionId, setSessionId] = useState('');
   
-  // File state
-  const [file, setFile] = useState(null); // { name, size, type, dataUrl, capturedVia }
+  // Multi-file state
+  const [files, setFiles] = useState([]); // [{ id, name, size, type, dataUrl, capturedVia }]
+  const [zoomImage, setZoomImage] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
@@ -53,68 +56,90 @@ export const UploadDocumentModal = ({
   // FamilyMemberModal state for inline member addition
   const [familyModalOpen, setFamilyModalOpen] = useState(false);
 
-  // Sync active profile when modal opens
+  // Initialize modal state on open (stable sessionId)
   useEffect(() => {
     if (open) {
-      setSelectedMember(activeProfile || profiles[0] || null);
+      setSelectedMember(prev => prev || activeProfile || profiles[0] || null);
       setStep(1);
-      setFile(null);
+      setFiles([]);
+      setZoomImage(null);
       setDocType(null);
       setUploading(false);
       setDone(false);
       setSessionId(generateSyncSessionId());
     }
-  }, [open, activeProfile, profiles]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Handle local file drop
   const handleDrop = (e) => {
     e.preventDefault();
     setDragging(false);
-    const f = e.dataTransfer.files?.[0];
-    if (f) processFile(f);
+    const dropped = Array.from(e.dataTransfer.files || []);
+    if (dropped.length > 0) processFiles(dropped);
   };
 
   // Handle local file picker
   const handleFileInput = (e) => {
-    const f = e.target.files?.[0];
-    if (f) processFile(f);
+    const selected = Array.from(e.target.files || []);
+    if (selected.length > 0) processFiles(selected);
+    e.target.value = '';
   };
 
-  const processFile = (f) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setFile({
-        name: f.name,
-        size: f.size,
-        type: f.type,
-        dataUrl: event.target.result,
-        capturedVia: 'desktop_upload',
-      });
-    };
-    reader.readAsDataURL(f);
+  const processFiles = (fileList) => {
+    fileList.forEach(f => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFiles(prev => [
+          ...prev,
+          {
+            id: `file_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            dataUrl: event.target.result,
+            capturedVia: 'desktop_upload',
+          },
+        ]);
+      };
+      reader.readAsDataURL(f);
+    });
   };
 
   // Quick sample loader for fast testing
   const handleSample = (type) => {
-    setFile({
-      name: type === 'Prescription' ? 'sample_prescription_dr_mehta.pdf' : 'sample_blood_report_srl.pdf',
-      size: type === 'Prescription' ? 245000 : 380000,
-      type: 'application/pdf',
-      dataUrl: null,
-      capturedVia: 'sample_preset',
-    });
+    setFiles(prev => [
+      ...prev,
+      {
+        id: `sample_${Date.now()}`,
+        name: type === 'Prescription' ? 'sample_prescription_dr_mehta.pdf' : 'sample_blood_report_srl.pdf',
+        size: type === 'Prescription' ? 245000 : 380000,
+        type: 'application/pdf',
+        dataUrl: null,
+        capturedVia: 'sample_preset',
+      },
+    ]);
   };
 
-  // Handler when photo is received from smartphone QR sync
+  // Handler when photo is received from smartphone QR sync (supports multiple sequential snaps)
   const handleMobilePhotoReceived = useCallback((payload) => {
-    setFile({
-      name: payload.name || `mobile_scan_${Date.now()}.jpg`,
-      size: payload.size || 180000,
-      type: payload.type || 'image/jpeg',
-      dataUrl: payload.dataUrl,
-      capturedVia: 'mobile_camera',
-    });
+    setFiles(prev => [
+      ...prev,
+      {
+        id: `mobile_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: payload.name || `mobile_scan_${Date.now()}.jpg`,
+        size: payload.size || 180000,
+        type: payload.type || 'image/jpeg',
+        dataUrl: payload.dataUrl,
+        capturedVia: 'mobile_camera',
+      },
+    ]);
   }, []);
+
+  // Remove single file
+  const handleRemoveFile = (idToRemove) => {
+    setFiles(prev => prev.filter(f => f.id !== idToRemove));
+  };
 
   // Handle adding new family member inline
   const handleSaveNewMember = async (newMemberData) => {
@@ -123,7 +148,6 @@ export const UploadDocumentModal = ({
         await onAddMember(newMemberData);
       }
       setFamilyModalOpen(false);
-      // Auto-select newly created member if provided
       if (newMemberData && typeof newMemberData === 'object') {
         setSelectedMember(newMemberData);
       }
@@ -134,7 +158,7 @@ export const UploadDocumentModal = ({
 
   // Upload and persist document to vault
   const handleConfirmUpload = async () => {
-    if (!file || !docType) return;
+    if (files.length === 0 || !docType) return;
 
     try {
       setUploading(true);
@@ -156,7 +180,8 @@ export const UploadDocumentModal = ({
         verified: true,
         badge: docType === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded',
         ai_status: 'completed',
-        local_file_path: file.name,
+        local_file_path: files.map(f => f.name).join(', '),
+        page_count: files.length,
       };
 
       onUploadSuccess?.(newDocPayload);
@@ -428,12 +453,12 @@ export const UploadDocumentModal = ({
               </div>
             )}
 
-            {/* ── STEP 3: DUAL UPLOAD (DESKTOP DROP + PHONE QR) ── */}
+            {/* ── STEP 3: DUAL UPLOAD (QR SCANNER FIRST, PHOTO GALLERY BELOW) ── */}
             {step === 3 && (
-              <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-4">
                 {/* Dossier & Category Banner */}
-                <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80">
-                  <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-3 border border-slate-200/80">
+                  <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                     <span className="text-xs font-bold text-slate-800">
                       Uploading {docType} for <span className="text-emerald-700">{selectedMember?.name || selectedMember?.relationship}</span>
@@ -448,105 +473,86 @@ export const UploadDocumentModal = ({
                   </button>
                 </div>
 
-                {/* Direct Dropzone OR Selected File Preview */}
-                {file ? (
-                  <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-50/80 border-2 border-emerald-400 shadow-sm animate-in fade-in">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-12 h-12 rounded-xl bg-white border border-emerald-200 flex items-center justify-center shrink-0 overflow-hidden">
-                        {file.dataUrl && file.type?.startsWith('image/') ? (
-                          <img src={file.dataUrl} alt="Preview" className="w-full h-full object-cover" />
-                        ) : (
-                          <FileText className="w-6 h-6 text-emerald-600" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-slate-900 truncate">{file.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
-                          <span>{Math.round(file.size / 1024)} KB</span>
-                          {file.capturedVia === 'mobile_camera' && (
-                            <span className="text-emerald-700 font-bold bg-emerald-100 px-2 py-0.5 rounded-full text-[10px]">
-                              📸 Synced from Phone Camera
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                {/* 1. Desktop File Dropzone (As it was originally) */}
+                <div className="flex flex-col gap-2.5">
+                  <label
+                    htmlFor="desktop-file-input"
+                    className={`flex flex-col items-center justify-center gap-2 h-28 rounded-2xl border-2 border-dashed cursor-pointer transition-all duration-200 ${
+                      dragging
+                        ? 'border-emerald-500 bg-emerald-50'
+                        : 'border-slate-200 bg-slate-50/60 hover:border-emerald-400 hover:bg-emerald-50/30'
+                    }`}
+                    onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={handleDrop}
+                  >
+                    <Upload className="w-6 h-6 text-slate-400" />
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-slate-700">Drop PDF, JPG, PNG here or browse from computer</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Maximum file size: 15 MB · Supports multi-page upload</p>
                     </div>
+                    <input
+                      id="desktop-file-input"
+                      type="file"
+                      multiple
+                      className="hidden"
+                      accept=".pdf,.png,.jpg,.jpeg,.heic"
+                      onChange={handleFileInput}
+                    />
+                  </label>
 
+                  {/* Judge / Evaluator Fast-Track Explainer Notice */}
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs">
+                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                      <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                      <p className="text-[11px] text-slate-600 leading-snug">
+                        <strong className="text-amber-800 font-bold">Judge / Evaluator Fast-Track:</strong> No medical file on hand? Click to load our pre-configured sample {docType === 'Blood Test' ? 'lab report' : 'prescription'} to test clinical extraction instantly.
+                      </p>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setFile(null)}
-                      className="w-8 h-8 rounded-xl bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 flex items-center justify-center border border-slate-200 transition-colors shrink-0 ml-2"
-                      title="Remove file"
+                      onClick={() => handleSample(docType)}
+                      className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 active:scale-95 px-3 py-1.5 rounded-xl border border-amber-300 shadow-2xs transition-all shrink-0"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Zap className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Load Sample {docType === 'Blood Test' ? 'Lab' : 'Rx'}</span>
                     </button>
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    {/* Desktop Dropzone */}
-                    <label
-                      htmlFor="desktop-file-input"
-                      className={`flex flex-col items-center justify-center gap-2 h-28 rounded-2xl border-2 border-dashed cursor-pointer transition-all duration-200 ${
-                        dragging
-                          ? 'border-emerald-500 bg-emerald-50'
-                          : 'border-slate-200 bg-slate-50/50 hover:border-emerald-400 hover:bg-emerald-50/30'
-                      }`}
-                      onDragOver={e => { e.preventDefault(); setDragging(true); }}
-                      onDragLeave={() => setDragging(false)}
-                      onDrop={handleDrop}
-                    >
-                      <Upload className="w-6 h-6 text-slate-400" />
-                      <div className="text-center">
-                        <p className="text-xs font-bold text-slate-700">Drop PDF, JPG, PNG here or browse</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">Maximum file size: 15 MB</p>
-                      </div>
-                      <input
-                        id="desktop-file-input"
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.png,.jpg,.jpeg,.heic"
-                        onChange={handleFileInput}
-                      />
-                    </label>
+                </div>
 
-                    {/* Quick Sample Button */}
-                    <div className="flex items-center justify-between px-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fast-Track Test:</span>
-                      <button
-                        type="button"
-                        onClick={() => handleSample(docType)}
-                        className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-xl border border-emerald-200 transition-colors"
-                      >
-                        <Zap className="w-3 h-3 text-emerald-600" />
-                        <span>Load Sample {docType}</span>
-                      </button>
-                    </div>
+                {/* 2. QR Code Phone Sync Card */}
+                <QrCodeSyncCard
+                  sessionId={sessionId}
+                  activeProfile={selectedMember}
+                  docType={docType}
+                  onPhotoReceived={handleMobilePhotoReceived}
+                  isSynced={files.some(f => f.capturedVia === 'mobile_camera')}
+                />
+
+                {/* 3. Synced Document Photo Gallery (Placed BELOW the QR card) */}
+                {files.length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-50/60 border-2 border-emerald-300">
+                    <DocumentPhotoGallery
+                      files={files}
+                      onRemove={handleRemoveFile}
+                      onZoom={setZoomImage}
+                      onAddClick={() => document.getElementById('desktop-file-input')?.click()}
+                    />
                   </div>
                 )}
 
-                {/* QR Code Phone Sync Card */}
-                <div className="border-t border-slate-100 pt-3">
-                  <QrCodeSyncCard
-                    sessionId={sessionId}
-                    activeProfile={selectedMember}
-                    docType={docType}
-                    onPhotoReceived={handleMobilePhotoReceived}
-                    isSynced={file?.capturedVia === 'mobile_camera'}
-                  />
-                </div>
-
-                {/* Confirm Upload Button */}
+                {/* 4. Action Button */}
                 <button
                   type="button"
                   id="confirm-upload-btn"
                   onClick={handleConfirmUpload}
-                  disabled={!file || uploading}
+                  disabled={files.length === 0 || uploading}
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black text-sm shadow-lg shadow-emerald-600/25 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed mt-1"
                 >
                   {done ? (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Document Secured in Vault!</span>
+                      <span>{files.length} Document{files.length !== 1 ? 's' : ''} Secured in Vault!</span>
                     </>
                   ) : uploading ? (
                     <>
@@ -556,7 +562,7 @@ export const UploadDocumentModal = ({
                   ) : (
                     <>
                       <Zap className="w-4 h-4" />
-                      <span>Upload &amp; Save to Vault</span>
+                      <span>Upload &amp; Save to Vault {files.length > 0 ? `(${files.length})` : ''}</span>
                     </>
                   )}
                 </button>
@@ -566,6 +572,13 @@ export const UploadDocumentModal = ({
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Lightbox Zoom Modal */}
+      <ImageZoomModal
+        imageSrc={zoomImage}
+        title={`Inspecting ${docType || 'Document'} for ${selectedMember?.name || 'Patient'}`}
+        onClose={() => setZoomImage(null)}
+      />
 
       {/* Inline Family Member Modal */}
       <FamilyMemberModal

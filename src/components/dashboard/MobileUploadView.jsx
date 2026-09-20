@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, CheckCircle2, RefreshCw, Send, ArrowLeft, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Camera, CheckCircle2, RefreshCw, Send, ShieldCheck, AlertCircle } from 'lucide-react';
 import { broadcastMobilePhoto } from '../../lib/documentService';
 import { DosiqLogo } from '../common/DosiqLogo';
 
@@ -31,10 +31,10 @@ export const MobileUploadView = () => {
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        // Compress slightly for fast cross-device realtime broadcast
+        // Compress to ~40-60KB so it safely fits within Supabase Realtime 256KB WebSocket frame limit
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1400;
-        const MAX_HEIGHT = 1400;
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
         let width = img.width;
         let height = img.height;
 
@@ -55,7 +55,7 @@ export const MobileUploadView = () => {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
 
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.65);
         setImagePreview(compressedDataUrl);
         setFileDetails({
           name: file.name || `camera_${Date.now()}.jpg`,
@@ -100,7 +100,7 @@ export const MobileUploadView = () => {
       {/* Header */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
-          <DosiqLogo size="small" showBadge={false} />
+          <DosiqLogo size="small" showBadge={false} variant="light" />
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>Vault Sync</span>

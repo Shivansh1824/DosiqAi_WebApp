@@ -61,9 +61,7 @@ export const subscribeToMobileSync = (sessionId, onPhotoReceived) => {
   if (!sessionId) return () => {};
 
   const channelName = `mobile-sync-${sessionId}`;
-  const channel = supabase.channel(channelName, {
-    config: { broadcast: { self: false } },
-  });
+  const channel = supabase.channel(channelName);
 
   channel
     .on('broadcast', { event: 'photo_uploaded' }, (eventPayload) => {
@@ -73,7 +71,7 @@ export const subscribeToMobileSync = (sessionId, onPhotoReceived) => {
     })
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        // Channel actively listening for cross-device broadcast
+        // Connected and listening for cross-device sync
       }
     });
 
@@ -89,26 +87,49 @@ export const broadcastMobilePhoto = async (sessionId, filePayload) => {
   if (!sessionId) throw new Error('Session ID is required');
 
   const channelName = `mobile-sync-${sessionId}`;
-  const channel = supabase.channel(channelName, {
-    config: { broadcast: { self: true } },
-  });
+  const channel = supabase.channel(channelName);
 
   return new Promise((resolve, reject) => {
+    let resolved = false;
+
+    // Timeout safety
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        supabase.removeChannel(channel);
+        reject(new Error('Connection timed out while sending photo to desktop'));
+      }
+    }, 15000);
+
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         try {
-          await channel.send({
+          const sendStatus = await channel.send({
             type: 'broadcast',
             event: 'photo_uploaded',
             payload: filePayload,
           });
+
+          if (sendStatus === 'error') {
+            throw new Error('Supabase Realtime broadcast failed: message rejected');
+          }
+
+          // Allow WebSocket frame to flush before closing channel
           setTimeout(() => {
-            supabase.removeChannel(channel);
-            resolve(true);
-          }, 300);
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(timer);
+              supabase.removeChannel(channel);
+              resolve(true);
+            }
+          }, 1200);
         } catch (err) {
-          supabase.removeChannel(channel);
-          reject(err);
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            supabase.removeChannel(channel);
+            reject(err);
+          }
         }
       }
     });
