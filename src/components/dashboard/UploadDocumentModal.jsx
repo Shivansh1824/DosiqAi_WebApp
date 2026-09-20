@@ -8,26 +8,14 @@ import { FamilyMemberModal } from '../onboarding/FamilyMemberModal';
 import { QrCodeSyncCard } from './QrCodeSyncCard';
 import { DocumentPhotoGallery } from './DocumentPhotoGallery';
 import { ImageZoomModal } from './ImageZoomModal';
-import { generateSyncSessionId } from '../../lib/documentService';
+import { generateSyncSessionId, processDocumentFilesForVault } from '../../lib/documentService';
 import { useAuth } from '../../context/AuthContext';
 
-const PRESET_EMOJIS = {
-  'preset-1': '👨‍⚕️', 'preset-2': '👩‍⚕️', 'preset-3': '🧑‍💼',
-  'preset-4': '👴',   'preset-5': '👩',    'preset-6': '🧑',
-  'preset-7': '👦',   'preset-8': '👧',
-};
-
+const PRESET_EMOJIS = { 'preset-1': '👨‍⚕️', 'preset-2': '👩‍⚕️', 'preset-3': '🧑‍💼', 'preset-4': '👴', 'preset-5': '👩', 'preset-6': '🧑', 'preset-7': '👦', 'preset-8': '👧' };
 const RELATIONSHIP_GRADIENTS = {
-  'Self':     'from-emerald-400 to-teal-500',
-  'Father':   'from-sky-400 to-cyan-500',
-  'Mother':   'from-violet-400 to-fuchsia-500',
-  'Child':    'from-amber-400 to-orange-500',
-  'Son':      'from-amber-400 to-orange-500',
-  'Daughter': 'from-pink-400 to-rose-500',
-  'Spouse':   'from-rose-400 to-pink-500',
-  'Brother':  'from-teal-400 to-emerald-500',
-  'Sister':   'from-fuchsia-400 to-purple-500',
-  'Other':    'from-slate-400 to-gray-500',
+  Self: 'from-emerald-400 to-teal-500', Father: 'from-sky-400 to-cyan-500', Mother: 'from-violet-400 to-fuchsia-500',
+  Child: 'from-amber-400 to-orange-500', Son: 'from-amber-400 to-orange-500', Daughter: 'from-pink-400 to-rose-500',
+  Spouse: 'from-rose-400 to-pink-500', Brother: 'from-teal-400 to-emerald-500', Sister: 'from-fuchsia-400 to-purple-500', Other: 'from-slate-400 to-gray-500',
 };
 
 export const UploadDocumentModal = ({
@@ -162,10 +150,17 @@ export const UploadDocumentModal = ({
 
     try {
       setUploading(true);
-      await new Promise(r => setTimeout(r, 1400)); // Smooth UX transition
 
       const memberId = selectedMember?.id || null;
       const patientName = selectedMember?.name || selectedMember?.relationship || 'Family Member';
+
+      // 1-file: direct upload without conversion; 2+ files: compile into multi-page PDF
+      const { finalFileName, cloudFileKey, pageCount, isMulti } = await processDocumentFilesForVault(
+        user?.id,
+        files,
+        docType,
+        patientName
+      );
 
       const newDocPayload = {
         id: `doc_${Date.now()}`,
@@ -178,10 +173,11 @@ export const UploadDocumentModal = ({
         clinic: 'Clinical Vault',
         date: new Date().toISOString().split('T')[0],
         verified: true,
-        badge: docType === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded',
-        ai_status: 'completed',
-        local_file_path: files.map(f => f.name).join(', '),
-        page_count: files.length,
+        badge: isMulti ? `${pageCount} Pages Compiled` : (docType === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded'),
+        ai_status: 'pending',
+        cloud_file_key: cloudFileKey,
+        local_file_path: finalFileName,
+        page_count: pageCount,
       };
 
       onUploadSuccess?.(newDocPayload);
@@ -552,17 +548,21 @@ export const UploadDocumentModal = ({
                   {done ? (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>{files.length} Document{files.length !== 1 ? 's' : ''} Secured in Vault!</span>
+                      <span>{files.length > 1 ? `${files.length} Pages Compiled & Secured in Vault!` : 'Document Secured in Vault!'}</span>
                     </>
                   ) : uploading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Encrypting &amp; Securing to Vault…</span>
+                      <span>{files.length > 1 ? 'Compiling Multi-Page PDF & Securing…' : 'Securing Document to Vault…'}</span>
                     </>
                   ) : (
                     <>
                       <Zap className="w-4 h-4" />
-                      <span>Upload &amp; Save to Vault {files.length > 0 ? `(${files.length})` : ''}</span>
+                      <span>
+                        {files.length > 1 
+                          ? `Compile & Save PDF to Vault (${files.length} Pages)`
+                          : `Upload & Save to Vault ${files.length > 0 ? '(1 File)' : ''}`}
+                      </span>
                     </>
                   )}
                 </button>

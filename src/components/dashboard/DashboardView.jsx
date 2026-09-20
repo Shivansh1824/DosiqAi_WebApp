@@ -288,7 +288,9 @@ export const DashboardView = () => {
           diagnosis: newDoc.diagnosis,
           issued_by: newDoc.doctor,
           visit_date: newDoc.date,
-          ai_analysis_status: 'completed',
+          cloud_file_key: newDoc.cloud_file_key || null,
+          local_file_path: newDoc.local_file_path || null,
+          ai_analysis_status: newDoc.ai_status || 'pending',
         }]);
       } catch (err) {
         console.error('Error persisting document:', err);

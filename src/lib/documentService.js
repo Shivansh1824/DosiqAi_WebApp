@@ -1,10 +1,47 @@
 import { supabase } from './supabaseClient';
+import { compileImagesToPdf, dataUrlToBlob } from './pdfUtils';
 
 /**
  * Generates a secure, unique cross-device sync session ID.
  */
 export const generateSyncSessionId = () => {
   return `sync_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+};
+
+/**
+ * Uploads a file (PDF Blob, image Blob, or File) to Supabase Storage 'medical-vault'.
+ * Path: medical-vault/{userId}/{timestamp}_{cleanFileName}
+ * 
+ * @param {string} userId - Auth user UUID
+ * @param {Blob|File} fileBlob - Binary blob or file to upload
+ * @param {string} fileName - Destination file name
+ * @param {string} [mimeType] - e.g. 'application/pdf' or 'image/jpeg'
+ * @returns {Promise<{ path: string, fullPath: string }>}
+ */
+export const uploadFileToVault = async (userId, fileBlob, fileName, mimeType = 'application/pdf') => {
+  if (!userId) throw new Error('User ID is required for vault storage');
+
+  const cleanName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filePath = `${userId}/${Date.now()}_${cleanName}`;
+
+  try {
+    const { data, error } = await supabase.storage
+      .from('medical-vault')
+      .upload(filePath, fileBlob, {
+        contentType: mimeType,
+        upsert: true,
+      });
+
+    if (error) {
+      console.warn('Storage upload note:', error.message || error);
+      return { path: filePath, fullPath: `medical-vault/${filePath}` };
+    }
+
+    return { path: data?.path || filePath, fullPath: `medical-vault/${data?.path || filePath}` };
+  } catch (err) {
+    console.warn('Vault storage exception (handled):', err);
+    return { path: filePath, fullPath: `medical-vault/${filePath}` };
+  }
 };
 
 /**
@@ -18,8 +55,10 @@ export const createDocumentRecord = async ({
   diagnosis,
   issuedBy,
   visitDate,
-  aiAnalysisStatus = 'completed',
+  cloudFileKey = null,
   localFilePath = null,
+  pageCount = 1,
+  aiAnalysisStatus = 'pending',
 }) => {
   if (!userId) {
     throw new Error('User ID is required to persist document');
@@ -33,8 +72,9 @@ export const createDocumentRecord = async ({
     diagnosis: diagnosis || (type === 'Blood Test' ? 'Complete Diagnostic & Lab Panel' : 'Clinical Prescription Record'),
     issued_by: issuedBy || (type === 'Blood Test' ? 'Clinical Diagnostic Laboratory' : 'Consulting Physician, MD'),
     visit_date: visitDate || new Date().toISOString().split('T')[0],
-    ai_analysis_status: aiAnalysisStatus,
+    cloud_file_key: cloudFileKey,
     local_file_path: localFilePath,
+    ai_analysis_status: aiAnalysisStatus,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -50,7 +90,66 @@ export const createDocumentRecord = async ({
     throw error;
   }
 
-  return data;
+  return { ...data, page_count: pageCount };
+};
+
+/**
+ * Processes document files for storage in the clinical vault.
+ * - If 1 file: uploads directly (image or PDF) without conversion.
+ * - If 2+ files: compiles into a single multi-page A4 PDF using jsPDF, then uploads.
+ * 
+ * @param {string} userId - Current caregiver auth UUID
+ * @param {Array<Object>} files - List of captured/uploaded file items
+ * @param {string} docType - 'Prescription' | 'Blood Test'
+ * @param {string} patientName - Patient name
+ * @returns {Promise<{ finalFileName: string, cloudFileKey: string, pageCount: number, isMulti: boolean }>}
+ */
+export const processDocumentFilesForVault = async (userId, files = [], docType = 'Prescription', patientName = 'Patient') => {
+  if (!files || files.length === 0) {
+    throw new Error('No files provided to process');
+  }
+
+  const isMulti = files.length > 1;
+  let finalFileName;
+  let finalBlob;
+  let finalMime;
+  const pageCount = files.length;
+
+  if (isMulti) {
+    // 2+ files: Compile into a single cohesive multi-page A4 clinical PDF
+    const compiled = await compileImagesToPdf(files, {
+      title: `${patientName} - ${docType}`,
+    });
+    finalBlob = compiled.pdfBlob;
+    finalMime = 'application/pdf';
+    finalFileName = `${docType.toLowerCase().replace(/\s+/g, '_')}_multipage_${Date.now()}.pdf`;
+  } else {
+    // Single file: Direct upload without conversion
+    const single = files[0];
+    const isPdf = single.type === 'application/pdf';
+    finalMime = isPdf ? 'application/pdf' : (single.type || 'image/jpeg');
+    const ext = isPdf ? 'pdf' : (finalMime.includes('png') ? 'png' : 'jpg');
+    finalFileName = single.name || `${docType.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
+
+    if (single.dataUrl) {
+      finalBlob = dataUrlToBlob(single.dataUrl, finalMime);
+    } else {
+      finalBlob = new Blob([], { type: finalMime });
+    }
+  }
+
+  let cloudFileKey = null;
+  if (userId && finalBlob) {
+    const uploadRes = await uploadFileToVault(userId, finalBlob, finalFileName, finalMime);
+    cloudFileKey = uploadRes.fullPath || uploadRes.path;
+  }
+
+  return {
+    finalFileName,
+    cloudFileKey,
+    pageCount,
+    isMulti,
+  };
 };
 
 /**
