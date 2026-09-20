@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  UserPlus, User, Users, Settings, CheckCircle2, Crown,
-  Heart, Phone, Activity, Clock, Send, Scale, Ruler
+  UserPlus, Users, Settings, CheckCircle2, Crown,
+  Phone, Clock, Send,
 } from 'lucide-react';
 import { FamilyMemberModal } from '../onboarding/FamilyMemberModal';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
@@ -35,17 +35,7 @@ const ProfileCard = ({ profile, isActive, onSelect, onOpenSettings }) => {
 
   return (
     <div
-      onClick={() => {
-        onSelect(profile);
-        const toast = document.createElement('div');
-        toast.className = 'fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 z-50 text-sm font-bold animate-in slide-in-from-bottom-5 fade-in duration-300';
-        toast.innerHTML = `<span class="w-2 h-2 rounded-full ${color.bg.replace('bg-', 'bg-').replace('-50', '-500')}"></span> Dashboard updated for ${profile.name.split(' ')[0] || profile.relationship}`;
-        document.body.appendChild(toast);
-        setTimeout(() => {
-          toast.classList.add('animate-out', 'fade-out', 'slide-out-to-bottom-5');
-          setTimeout(() => toast.remove(), 300);
-        }, 2500);
-      }}
+      onClick={() => onSelect(profile)}
       className={`relative cursor-pointer flex flex-col p-5 rounded-3xl transition-all duration-300 ${
         isActive
           ? 'bg-white shadow-xl shadow-slate-900/10 border-2 border-slate-900 scale-[1.01] z-10 ring-4 ring-slate-900/5'

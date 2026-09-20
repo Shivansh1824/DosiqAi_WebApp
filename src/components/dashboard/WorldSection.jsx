@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Globe, Activity, FileText, ShieldCheck, Send, Users,
-  UploadCloud, ChevronRight, CheckCircle2, BellRing,
+  Activity, FileText, ShieldCheck, Send, Users,
+  UploadCloud, ChevronRight, CheckCircle2,
   TrendingUp, Pill, Clock, Plus, ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -54,13 +54,10 @@ export const WorldSection = ({ user: propUser, profiles = [], activeProfile, doc
   const greeting = now.getHours() < 12 ? 'Good Morning' : now.getHours() < 17 ? 'Good Afternoon' : 'Good Evening';
   const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  // Compute live dynamic stats from real database profiles
-  const totalProfiles = profiles.length;
-  const caregiverName =
+  const userName =
     user?.user_metadata?.full_name?.split(' ')[0] ||
     profiles.find(p => p.relationship === 'Self')?.name?.split(' ')[0] ||
     'Caregiver';
-  const userName = caregiverName;
 
   // Dynamic Telegram Family List
   const familyTelegram = profiles.map(p => ({
@@ -144,19 +141,13 @@ export const WorldSection = ({ user: propUser, profiles = [], activeProfile, doc
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="relative z-10 flex flex-col gap-2 shrink-0 sm:items-end">
+        {/* Quick Action */}
+        <div className="relative z-10 flex items-center shrink-0">
           <button
             onClick={() => setUploadOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.97] text-white text-sm font-bold shadow-lg shadow-emerald-900/30 transition-all duration-150"
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.97] text-white text-sm font-bold shadow-lg shadow-emerald-900/30 transition-all duration-150"
           >
-            <UploadCloud className="w-4 h-4" /> Upload Prescription
-          </button>
-          <button
-            onClick={() => setUploadOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-[0.97] text-white text-sm font-bold border border-white/20 transition-all duration-150"
-          >
-            <FileText className="w-4 h-4" /> Upload Lab Report
+            <UploadCloud className="w-4 h-4" /> Upload Document
           </button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  X, User, Phone, Activity, Heart, Clock, Send,
-  CheckCircle2, Shield, Calendar, Scale, Ruler, Sparkles, Loader2,
+  X, User, Phone, Activity, Clock, Send,
+  CheckCircle2, Sparkles, Loader2,
   Camera, Upload, Trash2, ExternalLink
 } from 'lucide-react';
 import { compressAvatarFile } from '../../lib/imageUtils';

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Stethoscope, Send } from 'lucide-react';
+import { Stethoscope } from 'lucide-react';
 import { ClinicalVaultSection } from './ClinicalVaultSection';
 import { UploadDocumentModal }  from './UploadDocumentModal';
 import { CareLoopSection }      from './CareLoopSection';

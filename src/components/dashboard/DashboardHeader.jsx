@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  LogOut, Settings, User, LayoutDashboard, Upload,
+  LogOut, Settings, User, LayoutDashboard,
   ChevronDown, Bell, Send, Zap
 } from 'lucide-react';
 import { DosiqLogo } from '../common/DosiqLogo';
