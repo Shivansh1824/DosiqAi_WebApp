@@ -144,6 +144,18 @@ export const UploadDocumentModal = ({
   // Derived: is the current file list locked to a single PDF?
   const isPdfLocked = files.length === 1 && files[0].type === 'application/pdf';
 
+  // Converts a base64 data URL to a Blob URL so browsers can open it in a new tab.
+  // window.open(dataUrl) is blocked by modern browsers as a security policy.
+  const openPdfInNewTab = (dataUrl) => {
+    const base64 = dataUrl.split(',')[1];
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const blobUrl = URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank');
+  };
+
   // Quick sample loader for fast testing
   const handleSample = (type) => {
     setFiles(prev => [
@@ -670,7 +682,7 @@ export const UploadDocumentModal = ({
                         </div>
                         <button
                           type="button"
-                          onClick={() => window.open(files[0].dataUrl, '_blank')}
+                          onClick={() => openPdfInNewTab(files[0].dataUrl)}
                           className="text-[10px] font-bold text-sky-600 hover:text-sky-800 bg-sky-100 hover:bg-sky-200 px-2.5 py-1 rounded-lg transition-colors shrink-0"
                         >
                           Open Full PDF ↗
@@ -679,7 +691,7 @@ export const UploadDocumentModal = ({
                       {/* Clickable iframe preview — click opens full PDF in new tab */}
                       <div
                         className="relative cursor-pointer group"
-                        onClick={() => window.open(files[0].dataUrl, '_blank')}
+                        onClick={() => openPdfInNewTab(files[0].dataUrl)}
                         title="Click to open full PDF"
                       >
                         <iframe
