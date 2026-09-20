@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserPlus, User, Settings, CheckCircle2, Crown, ShieldAlert } from 'lucide-react';
+import { UserPlus, User, Users, Settings, CheckCircle2, Crown, ShieldAlert } from 'lucide-react';
 
 const CATEGORY_COLORS = {
   'Self':     { bg: 'bg-emerald-50',  text: 'text-emerald-600', border: 'border-emerald-200', gradient: 'from-emerald-400 to-teal-500' },
