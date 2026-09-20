@@ -79,9 +79,9 @@ You must return a strict, clean JSON object with this exact schema (no markdown 
   ]
 }`;
 
-    // 4. Call Gemini 2.0 Flash for instant multimodal classification
+    // 4. Call Gemini 3.8 Flash Lite with medium reasoning for instant multimodal classification
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.8-flash-lite',
       contents: [
         {
           role: 'user',
@@ -99,6 +99,7 @@ You must return a strict, clean JSON object with this exact schema (no markdown 
       config: {
         responseMimeType: 'application/json',
         temperature: 0.1, // Low temperature for high precision classification
+        thinkingConfig: { thinkingBudget: 1024 }, // Medium reasoning
       }
     });
 

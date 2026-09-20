@@ -83,3 +83,8 @@ body {
 .animate-float-a { animation: floatA 6s ease-in-out infinite; }
 .animate-float-b { animation: floatB 7s ease-in-out infinite 1s; }
 .animate-float-c { animation: floatC 5.5s ease-in-out infinite 2s; }
+
+@keyframes slideRight {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}

@@ -8,7 +8,8 @@ import { FamilyMemberModal } from '../onboarding/FamilyMemberModal';
 import { QrCodeSyncCard } from './QrCodeSyncCard';
 import { DocumentPhotoGallery } from './DocumentPhotoGallery';
 import { ImageZoomModal } from './ImageZoomModal';
-import { generateSyncSessionId, processDocumentFilesForVault } from '../../lib/documentService';
+import { generateSyncSessionId, processDocumentFilesForVault, checkDocumentValidity } from '../../lib/documentService';
+import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 
 const PRESET_EMOJIS = { 'preset-1': '👨‍⚕️', 'preset-2': '👩‍⚕️', 'preset-3': '🧑‍💼', 'preset-4': '👴', 'preset-5': '👩', 'preset-6': '🧑', 'preset-7': '👦', 'preset-8': '👧' };
@@ -41,6 +42,15 @@ export const UploadDocumentModal = ({
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(false);
   
+  // AI verification states
+  const [checking, setChecking] = useState(false);       // Gemini is scanning
+  const [checkResult, setCheckResult] = useState(null);  // Full AI analysis result
+  const [invalidPages, setInvalidPages] = useState([]);  // Invalid page objects
+  const [showInvalidModal, setShowInvalidModal] = useState(false);
+  const [checkError, setCheckError] = useState(null);    // API/network error
+  const [currentCloudKey, setCurrentCloudKey] = useState(null); // Key of uploaded file
+  const [currentDocPayload, setCurrentDocPayload] = useState(null);
+  
   // FamilyMemberModal state for inline member addition
   const [familyModalOpen, setFamilyModalOpen] = useState(false);
 
@@ -54,6 +64,13 @@ export const UploadDocumentModal = ({
       setDocType(null);
       setUploading(false);
       setDone(false);
+      setChecking(false);
+      setCheckResult(null);
+      setInvalidPages([]);
+      setShowInvalidModal(false);
+      setCheckError(null);
+      setCurrentCloudKey(null);
+      setCurrentDocPayload(null);
       setSessionId(generateSyncSessionId());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -144,9 +161,10 @@ export const UploadDocumentModal = ({
     }
   };
 
-  // Upload and persist document to vault
+  // Upload and persist document to vault, then run AI check
   const handleConfirmUpload = async () => {
     if (files.length === 0 || !docType) return;
+    setCheckError(null);
 
     try {
       setUploading(true);
@@ -154,12 +172,8 @@ export const UploadDocumentModal = ({
       const memberId = selectedMember?.id || null;
       const patientName = selectedMember?.name || selectedMember?.relationship || 'Family Member';
 
-      // 1-file: direct upload without conversion; 2+ files: compile into multi-page PDF
       const { finalFileName, cloudFileKey, pageCount, isMulti } = await processDocumentFilesForVault(
-        user?.id,
-        files,
-        docType,
-        patientName
+        user?.id, files, docType, patientName
       );
 
       const newDocPayload = {
@@ -180,16 +194,77 @@ export const UploadDocumentModal = ({
         page_count: pageCount,
       };
 
-      onUploadSuccess?.(newDocPayload);
-
+      setCurrentCloudKey(cloudFileKey);
+      setCurrentDocPayload(newDocPayload);
       setUploading(false);
-      setDone(true);
-      setTimeout(() => {
-        onClose?.();
-      }, 1200);
+
+      // Run AI verification
+      setChecking(true);
+      const analysis = await checkDocumentValidity(cloudFileKey, docType);
+      setCheckResult(analysis);
+      setChecking(false);
+
+      if (analysis.isValidOverall) {
+        // All pages are valid – proceed directly
+        onUploadSuccess?.(newDocPayload);
+        setDone(true);
+        setTimeout(() => onClose?.(), 1400);
+      } else {
+        // Some pages are invalid – show the warning modal
+        const bad = analysis.pages.filter(p => p.status !== 'valid');
+        setInvalidPages(bad);
+        setShowInvalidModal(true);
+      }
     } catch (err) {
       console.error('Error in handleConfirmUpload:', err);
       setUploading(false);
+      setChecking(false);
+      setCheckError(err.message || 'Something went wrong. Please try again.');
+    }
+  };
+
+  // User chose to proceed with valid pages only
+  const handleProceedWithValid = async () => {
+    if (!checkResult || !currentDocPayload) return;
+    const validIndices = new Set(checkResult.pages.filter(p => p.status === 'valid').map(p => p.pageIndex));
+    const validFiles = files.filter((_, i) => validIndices.has(i));
+    if (validFiles.length === 0) return;
+
+    setShowInvalidModal(false);
+    setUploading(true);
+    setCheckError(null);
+
+    try {
+      const memberId = selectedMember?.id || null;
+      const patientName = selectedMember?.name || selectedMember?.relationship || 'Family Member';
+
+      // Recompile PDF with only valid files and delete old
+      const { finalFileName, cloudFileKey: newKey, pageCount, isMulti } = await processDocumentFilesForVault(
+        user?.id, validFiles, docType, patientName
+      );
+
+      // Supabase storage – delete old corrupted file
+      if (currentCloudKey) {
+        const oldPath = currentCloudKey.replace('medical-vault/', '');
+        await supabase.storage.from('medical-vault').remove([oldPath]);
+      }
+
+      const cleanPayload = {
+        ...currentDocPayload,
+        cloud_file_key: newKey,
+        local_file_path: finalFileName,
+        page_count: pageCount,
+        badge: isMulti ? `${pageCount} Pages Compiled` : (docType === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded'),
+      };
+
+      setUploading(false);
+      onUploadSuccess?.(cleanPayload);
+      setDone(true);
+      setTimeout(() => onClose?.(), 1400);
+    } catch (err) {
+      console.error('Recompile error:', err);
+      setUploading(false);
+      setCheckError(err.message || 'Failed to recompile. Please try again.');
     }
   };
 
@@ -537,12 +612,23 @@ export const UploadDocumentModal = ({
                   </div>
                 )}
 
-                {/* 4. Action Button */}
+                {/* Error message */}
+                {checkError && (
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-red-50 border border-red-200">
+                    <span className="text-base shrink-0">⚠️</span>
+                    <div>
+                      <p className="text-xs font-bold text-red-700">Verification Failed</p>
+                      <p className="text-[11px] text-red-600 mt-0.5 leading-relaxed">{checkError}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Button */}
                 <button
                   type="button"
                   id="confirm-upload-btn"
                   onClick={handleConfirmUpload}
-                  disabled={files.length === 0 || uploading}
+                  disabled={files.length === 0 || uploading || checking}
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black text-sm shadow-lg shadow-emerald-600/25 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed mt-1"
                 >
                   {done ? (
@@ -555,11 +641,16 @@ export const UploadDocumentModal = ({
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>{files.length > 1 ? 'Compiling Multi-Page PDF & Securing…' : 'Securing Document to Vault…'}</span>
                     </>
+                  ) : checking ? (
+                    <>
+                      <Sparkles className="w-4 h-4 animate-pulse" />
+                      <span>Gemini is Verifying Document…</span>
+                    </>
                   ) : (
                     <>
                       <Zap className="w-4 h-4" />
                       <span>
-                        {files.length > 1 
+                        {files.length > 1
                           ? `Compile & Save PDF to Vault (${files.length} Pages)`
                           : `Upload & Save to Vault ${files.length > 0 ? '(1 File)' : ''}`}
                       </span>
@@ -588,6 +679,136 @@ export const UploadDocumentModal = ({
         defaultRelationship="Father"
         onSave={handleSaveNewMember}
       />
+
+      {/* AI VERIFICATION OVERLAY */}
+      {(checking || uploading) && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 backdrop-blur-md">
+          <div className="relative w-[340px] sm:w-[400px] bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 p-8 flex flex-col items-center gap-6">
+            {/* Animated Gemini Pulse Ring */}
+            <div className="relative flex items-center justify-center">
+              <div className="absolute w-24 h-24 rounded-full bg-gradient-to-tr from-violet-500/30 to-sky-400/20 animate-ping" />
+              <div className="absolute w-16 h-16 rounded-full bg-gradient-to-tr from-violet-400/40 to-emerald-400/30 animate-pulse" />
+              <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 to-sky-500 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                <Sparkles className="w-7 h-7 text-white" />
+              </div>
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <p className="text-sm font-black text-slate-900">
+                {uploading ? 'Securing Document to Vault…' : `Gemini AI is Scanning ${docType === 'Blood Test' ? 'Lab Report' : 'Prescription'}…`}
+              </p>
+              <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                {uploading
+                  ? 'Uploading your document securely to the encrypted clinical vault.'
+                  : 'Performing page-by-page medical document classification. Usually takes 2–4 seconds.'}
+              </p>
+            </div>
+
+            {/* Scanning shimmer bar */}
+            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full w-2/3 bg-gradient-to-r from-violet-500 via-sky-400 to-emerald-500 rounded-full"
+                style={{ animation: 'slideRight 1.8s ease-in-out infinite alternate' }}
+              />
+            </div>
+
+            <p className="text-[10px] text-slate-400 font-medium">
+              🔒 Your data is fully encrypted and never stored by Gemini.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* INVALID PAGES WARNING MODAL */}
+      {showInvalidModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+                  <span className="text-lg">⚠️</span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">Some Pages Are Invalid</h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Gemini detected issues with {invalidPages.length} page{invalidPages.length > 1 ? 's' : ''}.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 flex flex-col gap-2.5 max-h-64 overflow-y-auto">
+              {checkResult?.pages.map((page) => (
+                <div
+                  key={page.pageIndex}
+                  className={`flex items-start gap-3 p-3 rounded-2xl border ${
+                    page.status === 'valid'
+                      ? 'border-emerald-200 bg-emerald-50/50'
+                      : page.status === 'invalid_category'
+                      ? 'border-amber-200 bg-amber-50/60'
+                      : 'border-red-200 bg-red-50/50'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-black ${
+                    page.status === 'valid' ? 'bg-emerald-500 text-white' :
+                    page.status === 'invalid_category' ? 'bg-amber-400 text-white' :
+                    'bg-red-500 text-white'
+                  }`}>
+                    {page.pageIndex + 1}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-[11px] font-bold ${
+                      page.status === 'valid' ? 'text-emerald-700' :
+                      page.status === 'invalid_category' ? 'text-amber-700' :
+                      'text-red-700'
+                    }`}>
+                      {page.status === 'valid' ? '✓ Valid' :
+                       page.status === 'invalid_category' ? '⚠ Wrong Category' :
+                       '✕ Invalid'}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{page.reason}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="px-6 pb-6 pt-2 flex flex-col gap-2.5">
+              {checkResult?.pages.some(p => p.status === 'valid') ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleProceedWithValid}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black text-xs shadow-lg shadow-emerald-500/25 transition-all"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Proceed with {checkResult.pages.filter(p => p.status === 'valid').length} Valid Page{checkResult.pages.filter(p => p.status === 'valid').length > 1 ? 's' : ''} Only</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowInvalidModal(false); setChecking(false); }}
+                    className="w-full py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel & Replace Invalid Images
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-center text-red-600 font-bold">
+                    None of the uploaded pages are valid {docType === 'Blood Test' ? 'lab reports' : 'prescriptions'}. Please replace all images.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setShowInvalidModal(false); setChecking(false); }}
+                    className="w-full py-2.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 font-black text-xs hover:bg-red-100 transition-colors"
+                  >
+                    OK, Replace All Images
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

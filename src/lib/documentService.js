@@ -153,6 +153,37 @@ export const processDocumentFilesForVault = async (userId, files = [], docType =
 };
 
 /**
+ * Calls the appropriate Gemini checker endpoint based on document type.
+ * Returns page-by-page validation analysis from the AI.
+ *
+ * @param {string} cloudFileKey - Supabase path to the uploaded file
+ * @param {string} docType - 'Prescription' | 'Blood Test'
+ * @returns {Promise<{ isValidOverall: boolean, pages: Array }>}
+ */
+export const checkDocumentValidity = async (cloudFileKey, docType) => {
+  const endpoint = docType === 'Prescription'
+    ? '/api/check-prescription'
+    : '/api/check-report';
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cloud_file_key: cloudFileKey }),
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error || `Verification failed (HTTP ${response.status})`);
+  }
+
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Verification returned unsuccessful');
+
+  return data.analysis;
+};
+
+
+/**
  * Subscribes to cross-device mobile upload events via Supabase Realtime broadcast.
  * Listens for when a mobile device transmits an image for this specific sessionId.
  */
