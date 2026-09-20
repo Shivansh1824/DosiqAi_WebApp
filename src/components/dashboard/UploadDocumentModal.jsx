@@ -859,122 +859,143 @@ export const UploadDocumentModal = ({
       )}
 
       {/* INVALID PAGES WARNING MODAL */}
-      {showInvalidModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
-                  <span className="text-lg">⚠️</span>
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900">Some Pages Are Invalid</h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Gemini detected issues with {invalidPages.length} page{invalidPages.length > 1 ? 's' : ''}.
-                  </p>
+      {showInvalidModal && (() => {
+        const isFullCategoryMismatch = checkResult?.pages?.length > 0 && checkResult.pages.every(p => p.status === 'invalid_category');
+
+        return (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden">
+              <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-2xl ${isFullCategoryMismatch ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'} flex items-center justify-center shrink-0`}>
+                    {isFullCategoryMismatch ? <Sparkles className="w-5 h-5 text-amber-500" /> : <span className="text-lg">⚠️</span>}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900">
+                      {isFullCategoryMismatch ? 'Wrong Category Detected' : 'Some Pages Are Invalid'}
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {isFullCategoryMismatch 
+                        ? `Gemini AI identified this ${checkResult?.pages?.length || ''}-page document as a ${docType === 'Prescription' ? 'Lab Report' : 'Prescription'}.`
+                        : `Gemini detected issues with ${invalidPages.length} page${invalidPages.length > 1 ? 's' : ''}.`
+                      }
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="px-6 py-4 flex flex-col gap-2.5 max-h-64 overflow-y-auto">
-              {checkResult?.pages.map((page) => (
-                <div
-                  key={page.pageIndex}
-                  className={`flex items-start gap-3 p-3 rounded-2xl border ${
-                    page.status === 'valid'
-                      ? 'border-emerald-200 bg-emerald-50/50'
-                      : page.status === 'invalid_category'
-                      ? 'border-amber-200 bg-amber-50/60'
-                      : 'border-red-200 bg-red-50/50'
-                  }`}
-                >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-black ${
-                    page.status === 'valid' ? 'bg-emerald-500 text-white' :
-                    page.status === 'invalid_category' ? 'bg-amber-400 text-white' :
-                    'bg-red-500 text-white'
-                  }`}>
-                    {page.pageIndex + 1}
-                  </div>
-                  <div className="min-w-0">
-                    <p className={`text-[11px] font-bold ${
-                      page.status === 'valid' ? 'text-emerald-700' :
-                      page.status === 'invalid_category' ? 'text-amber-700' :
-                      'text-red-700'
-                    }`}>
-                      {page.status === 'valid' ? '✓ Valid' :
-                       page.status === 'invalid_category' ? '⚠ Wrong Category' :
-                       '✕ Invalid'}
-                    </p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{page.reason}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="px-6 pb-6 pt-2 flex flex-col gap-2.5">
-              {checkResult?.pages.some(p => p.status === 'valid') ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleProceedWithValid}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black text-xs shadow-lg shadow-emerald-500/25 transition-all"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Proceed with {checkResult.pages.filter(p => p.status === 'valid').length} Valid Page{checkResult.pages.filter(p => p.status === 'valid').length > 1 ? 's' : ''} Only</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowInvalidModal(false); setChecking(false); }}
-                    className="w-full py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors"
-                  >
-                    Cancel & Replace Invalid Images
-                  </button>
-                </>
-              ) : checkResult?.pages?.some(p => p.status === 'invalid_category') ? (
-                <>
-                  <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/80 flex flex-col gap-1.5 text-left">
+              {/* CASE 1: Full Document Category Mismatch -> Single clean card (no duplicate page boxes) */}
+              {isFullCategoryMismatch ? (
+                <div className="p-6 flex flex-col gap-4">
+                  <div className="p-4 rounded-2xl bg-amber-50/90 border border-amber-200/80 flex flex-col gap-2 text-left">
                     <div className="flex items-center gap-2 text-amber-800 font-bold text-xs">
                       <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>Wrong Category Detected by Gemini AI</span>
+                      <span>Smart Category Switch</span>
                     </div>
-                    <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
-                      You selected <strong>{docType === 'Prescription' ? 'Prescription' : 'Lab Report'}</strong>, but Gemini identified this document as a <strong>{docType === 'Prescription' ? 'Laboratory / Blood Test Report' : 'Doctor Prescription'}</strong>.
+                    <p className="text-xs text-amber-900 leading-relaxed font-medium">
+                      You uploaded this document in <strong>{docType === 'Prescription' ? 'Prescriptions' : 'Lab Reports'}</strong>, but Gemini AI verified that it is a <strong>{docType === 'Prescription' ? 'Laboratory / Blood Test Report' : 'Doctor Prescription'}</strong> ({checkResult?.pages?.length} pages).
+                    </p>
+                    <p className="text-[11px] text-amber-700 font-normal">
+                      Would you like to automatically convert and save it into your <strong>{docType === 'Prescription' ? 'Lab Reports' : 'Prescriptions'}</strong> vault?
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleSwitchCategoryAndSave}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] text-white font-black text-xs shadow-lg shadow-emerald-500/25 transition-all"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Convert to {docType === 'Prescription' ? 'Lab Report' : 'Prescription'} & Save to Vault</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowInvalidModal(false); setChecking(false); }}
-                    className="w-full py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors"
-                  >
-                    Cancel & Replace File
-                  </button>
-                </>
+
+                  <div className="flex flex-col gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleSwitchCategoryAndSave}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] text-white font-black text-xs shadow-lg shadow-emerald-500/25 transition-all"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Convert to {docType === 'Prescription' ? 'Lab Report' : 'Prescription'} & Save to Vault</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowInvalidModal(false); setChecking(false); }}
+                      className="w-full py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors"
+                    >
+                      Cancel & Replace File
+                    </button>
+                  </div>
+                </div>
               ) : (
+                /* CASE 2: Mixed Pages -> Show page-by-page breakdown */
                 <>
-                  <p className="text-xs text-center text-red-600 font-bold">
-                    None of the uploaded pages are valid {docType === 'Blood Test' ? 'lab reports' : 'prescriptions'}. Please replace all images.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => { setShowInvalidModal(false); setChecking(false); }}
-                    className="w-full py-2.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 font-black text-xs hover:bg-red-100 transition-colors"
-                  >
-                    OK, Replace All Images
-                  </button>
+                  <div className="px-6 py-4 flex flex-col gap-2.5 max-h-64 overflow-y-auto">
+                    {checkResult?.pages.map((page) => (
+                      <div
+                        key={page.pageIndex}
+                        className={`flex items-start gap-3 p-3 rounded-2xl border ${
+                          page.status === 'valid'
+                            ? 'border-emerald-200 bg-emerald-50/50'
+                            : page.status === 'invalid_category'
+                            ? 'border-amber-200 bg-amber-50/60'
+                            : 'border-red-200 bg-red-50/50'
+                        }`}
+                      >
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-black ${
+                          page.status === 'valid' ? 'bg-emerald-500 text-white' :
+                          page.status === 'invalid_category' ? 'bg-amber-400 text-white' :
+                          'bg-red-500 text-white'
+                        }`}>
+                          {page.pageIndex + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-[11px] font-bold ${
+                            page.status === 'valid' ? 'text-emerald-700' :
+                            page.status === 'invalid_category' ? 'text-amber-700' :
+                            'text-red-700'
+                          }`}>
+                            {page.status === 'valid' ? '✓ Valid' :
+                             page.status === 'invalid_category' ? '⚠ Wrong Category' :
+                             '✕ Invalid'}
+                          </p>
+                          <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{page.reason}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="px-6 pb-6 pt-2 flex flex-col gap-2.5">
+                    {checkResult?.pages.some(p => p.status === 'valid') ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleProceedWithValid}
+                          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black text-xs shadow-lg shadow-emerald-500/25 transition-all"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Proceed with {checkResult.pages.filter(p => p.status === 'valid').length} Valid Page{checkResult.pages.filter(p => p.status === 'valid').length > 1 ? 's' : ''} Only</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowInvalidModal(false); setChecking(false); }}
+                          className="w-full py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors"
+                        >
+                          Cancel & Replace Invalid Images
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-center text-red-600 font-bold">
+                          None of the uploaded pages are valid {docType === 'Blood Test' ? 'lab reports' : 'prescriptions'}. Please replace all images.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => { setShowInvalidModal(false); setChecking(false); }}
+                          className="w-full py-2.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 font-black text-xs hover:bg-red-100 transition-colors"
+                        >
+                          OK, Replace All Images
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </>
               )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </>
   );
 };
