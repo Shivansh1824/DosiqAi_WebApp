@@ -45,6 +45,7 @@ export const DashboardView = () => {
   // Navigation State
   const [activeTab, setActiveTab] = useState('world');
   const [loading, setLoading] = useState(true);
+  const [viewingDoc, setViewingDoc] = useState(null);
 
   // Real Database Data State
   const [profiles, setProfiles] = useState([]);
@@ -331,6 +332,10 @@ export const DashboardView = () => {
             onNavigate={setActiveTab}
             onAddMember={handleAddMember}
             onDocumentAdded={handleDocumentAdded}
+            onViewDocument={(doc) => {
+              setViewingDoc(doc);
+              setActiveTab('medical');
+            }}
           />
         )}
 
@@ -343,6 +348,8 @@ export const DashboardView = () => {
             medications={profileMeds}
             onDocumentAdded={handleDocumentAdded}
             onAddMember={handleAddMember}
+            initialDoc={viewingDoc}
+            onClearInitialDoc={() => setViewingDoc(null)}
           />
         )}
 

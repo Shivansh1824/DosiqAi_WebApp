@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Stethoscope } from 'lucide-react';
 import { ClinicalVaultSection } from './ClinicalVaultSection';
 import { UploadDocumentModal }  from './UploadDocumentModal';
 import { CareLoopSection }      from './CareLoopSection';
 import { QuickProfileSwitcher } from './QuickProfileSwitcher';
-import { ClinicalAnalysisModal } from './ClinicalAnalysisModal';
+import { ClinicalAnalysisScreen } from './clinical/ClinicalAnalysisScreen';
 import { extractDocumentData } from '../../lib/documentService';
 
 export const MedicalSection = ({
@@ -16,10 +16,18 @@ export const MedicalSection = ({
   events = [],
   onDocumentAdded,
   onAddMember,
+  initialDoc = null,
+  onClearInitialDoc,
 }) => {
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [analysisDoc, setAnalysisDoc] = useState(null);
+  const [analysisDoc, setAnalysisDoc] = useState(initialDoc);
   const firstName = activeProfile?.name?.split(' ')[0] || activeProfile?.relationship || 'this profile';
+
+  useEffect(() => {
+    if (initialDoc) {
+      setAnalysisDoc(initialDoc);
+    }
+  }, [initialDoc]);
 
   const handleDocumentClick = async (doc) => {
     if (doc.ai_analysis_result || !doc.cloud_file_key) {
@@ -36,6 +44,22 @@ export const MedicalSection = ({
       }
     }
   };
+
+  const handleBackFromAnalysis = () => {
+    setAnalysisDoc(null);
+    if (onClearInitialDoc) onClearInitialDoc();
+  };
+
+  // If a document is selected or extracted, render the dedicated Clinical Analysis Screen
+  if (analysisDoc) {
+    return (
+      <ClinicalAnalysisScreen
+        doc={analysisDoc}
+        onBack={handleBackFromAnalysis}
+        isExtracting={analysisDoc?.isExtracting}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -97,14 +121,7 @@ export const MedicalSection = ({
         }}
         onAddMember={onAddMember}
       />
-
-      {/* Analysis Modal */}
-      <ClinicalAnalysisModal
-        open={!!analysisDoc}
-        onClose={() => setAnalysisDoc(null)}
-        doc={analysisDoc}
-        isExtracting={analysisDoc?.isExtracting}
-      />
     </div>
   );
 };
+

@@ -54,6 +54,7 @@ export const WorldSection = ({
   onNavigate,
   onAddMember,
   onDocumentAdded,
+  onViewDocument,
 }) => {
   const auth = useAuth();
   const user = propUser || auth?.user;
@@ -374,6 +375,14 @@ export const WorldSection = ({
         profiles={profiles}
         activeProfile={activeProfile}
         onUploadSuccess={onDocumentAdded}
+        onExtractionComplete={(doc) => {
+          setUploadOpen(false);
+          if (onViewDocument) {
+            onViewDocument(doc);
+          } else if (onNavigate) {
+            onNavigate('medical');
+          }
+        }}
         onAddMember={onAddMember}
       />
     </div>
