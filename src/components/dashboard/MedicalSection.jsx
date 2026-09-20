@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Stethoscope } from 'lucide-react';
 import { ClinicalVaultSection } from './ClinicalVaultSection';
 import { UploadDocumentModal }  from './UploadDocumentModal';
+import { QuickProfileSwitcher } from './QuickProfileSwitcher';
 
-export const MedicalSection = ({ activeProfile, documents = [] }) => {
+export const MedicalSection = ({ profiles, activeProfile, onProfileSelect, documents = [] }) => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const firstName = activeProfile?.name?.split(' ')[0] || activeProfile?.relationship || 'this profile';
 
@@ -11,14 +12,22 @@ export const MedicalSection = ({ activeProfile, documents = [] }) => {
     <div className="flex flex-col gap-6">
       
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-          <Stethoscope className="w-6 h-6 text-emerald-500" />
-          Medical Vault
-        </h2>
-        <p className="text-sm text-slate-500 mt-1 font-medium">
-          Secure document storage and AI extraction for <span className="text-slate-800 font-bold">{firstName}</span>.
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Stethoscope className="w-6 h-6 text-emerald-500" />
+            Medical Vault
+          </h2>
+          <p className="text-sm text-slate-500 mt-1 font-medium">
+            Secure document storage and AI extraction for <span className="text-slate-800 font-bold">{firstName}</span>.
+          </p>
+        </div>
+        
+        <QuickProfileSwitcher 
+          profiles={profiles}
+          activeProfile={activeProfile}
+          onProfileSelect={onProfileSelect}
+        />
       </div>
 
       {/* Main Content */}

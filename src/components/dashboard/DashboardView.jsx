@@ -13,7 +13,8 @@ import {
 export const DashboardView = () => {
   // Global State
   const [activeTab, setActiveTab] = useState('world');
-  const [activeProfile, setActiveProfile] = useState(PROFILES[0]);
+  const [profiles, setProfiles] = useState(PROFILES);
+  const [activeProfile, setActiveProfile] = useState(profiles[0]);
 
   // Data slices for the active profile
   const profileKey = activeProfile?.id || 'self';
@@ -41,14 +42,18 @@ export const DashboardView = () => {
 
         {activeTab === 'medical' && (
           <MedicalSection 
+            profiles={profiles}
             activeProfile={activeProfile}
+            onProfileSelect={setActiveProfile}
             documents={documents}
           />
         )}
 
         {activeTab === 'health' && (
           <HealthSection 
+            profiles={profiles}
             activeProfile={activeProfile}
+            onProfileSelect={setActiveProfile}
             medications={medications}
             biomarkers={biomarkers}
             conflicts={conflicts}
@@ -58,12 +63,11 @@ export const DashboardView = () => {
 
         {activeTab === 'family' && (
           <FamilySection 
-            profiles={PROFILES}
+            profiles={profiles}
+            setProfiles={setProfiles}
             activeProfile={activeProfile}
             onProfileSelect={(p) => {
               setActiveProfile(p);
-              // Optional: auto-navigate to health or medical after selecting
-              // setActiveTab('health');
             }}
           />
         )}
