@@ -7,7 +7,19 @@ import { Loader2 } from 'lucide-react';
 import { DosiqLogo } from './components/common/DosiqLogo';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
+import { MobileUploadView } from './components/dashboard/MobileUploadView';
+
 export function App() {
+  const isMobileUpload = typeof window !== 'undefined' && window.location.search.includes('mobile_upload=true');
+
+  if (isMobileUpload) {
+    return (
+      <ErrorBoundary>
+        <MobileUploadView />
+      </ErrorBoundary>
+    );
+  }
+
   const { user, loading, isOnboarded } = useAuth();
 
   return (

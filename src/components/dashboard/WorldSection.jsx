@@ -45,7 +45,16 @@ const KpiCard = ({ label, value, sub, icon: Icon, colorClass, bgClass }) => (
 
 // ─── World Section ────────────────────────────────────────────────────────────
 
-export const WorldSection = ({ user: propUser, profiles = [], activeProfile, documents = [], medications = [], onNavigate }) => {
+export const WorldSection = ({
+  user: propUser,
+  profiles = [],
+  activeProfile,
+  documents = [],
+  medications = [],
+  onNavigate,
+  onAddMember,
+  onDocumentAdded,
+}) => {
   const auth = useAuth();
   const user = propUser || auth?.user;
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -359,7 +368,14 @@ export const WorldSection = ({ user: propUser, profiles = [], activeProfile, doc
         )}
       </div>
 
-      <UploadDocumentModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+      <UploadDocumentModal
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        profiles={profiles}
+        activeProfile={activeProfile}
+        onUploadSuccess={onDocumentAdded}
+        onAddMember={onAddMember}
+      />
     </div>
   );
 };

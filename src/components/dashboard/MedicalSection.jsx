@@ -5,7 +5,16 @@ import { UploadDocumentModal }  from './UploadDocumentModal';
 import { CareLoopSection }      from './CareLoopSection';
 import { QuickProfileSwitcher } from './QuickProfileSwitcher';
 
-export const MedicalSection = ({ profiles, activeProfile, onProfileSelect, documents = [], medications = [], events = [], onDocumentAdded }) => {
+export const MedicalSection = ({
+  profiles,
+  activeProfile,
+  onProfileSelect,
+  documents = [],
+  medications = [],
+  events = [],
+  onDocumentAdded,
+  onAddMember,
+}) => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const firstName = activeProfile?.name?.split(' ')[0] || activeProfile?.relationship || 'this profile';
 
@@ -59,8 +68,10 @@ export const MedicalSection = ({ profiles, activeProfile, onProfileSelect, docum
       <UploadDocumentModal
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
+        profiles={profiles}
         activeProfile={activeProfile}
         onUploadSuccess={onDocumentAdded}
+        onAddMember={onAddMember}
       />
     </div>
   );

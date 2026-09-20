@@ -324,7 +324,9 @@ export const DashboardView = () => {
             activeProfile={activeProfile}
             documents={documents}
             medications={medications}
-            onNavigate={setActiveTab} 
+            onNavigate={setActiveTab}
+            onAddMember={handleAddMember}
+            onDocumentAdded={handleDocumentAdded}
           />
         )}
 
@@ -336,6 +338,7 @@ export const DashboardView = () => {
             documents={profileDocs}
             medications={profileMeds}
             onDocumentAdded={handleDocumentAdded}
+            onAddMember={handleAddMember}
           />
         )}
 
