@@ -6,9 +6,7 @@ import {
   CheckCircle2, 
   Activity, 
   Cpu, 
-  Pill,
-  Sparkles,
-  Lock
+  Pill
 } from 'lucide-react';
 
 export const ClinicalExtractionShowcase = () => {

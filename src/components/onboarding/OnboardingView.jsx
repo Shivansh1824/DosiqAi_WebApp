@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ArrowRight, ArrowLeft, CheckCircle2, Phone, User,
-  Clock, Loader2, Users, MessageCircle, LogOut,
+  Loader2, Users, MessageCircle, LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { DosiqLogo } from '../common/DosiqLogo';
@@ -9,6 +9,10 @@ import { AvatarPicker } from './AvatarPicker';
 import { DoseTimeSelector } from './DoseTimeSelector';
 import { FamilyMemberModal } from './FamilyMemberModal';
 import { OnboardingLeftPanel } from './OnboardingLeftPanel';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
+
+gsap.registerPlugin(useGSAP);
 
 // ── Preset quick-add buttons for family members ──────────────────────────────
 const FAMILY_PRESETS = [
@@ -379,6 +383,36 @@ export const OnboardingView = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const formPanelRef = useRef(null);
+  const prevStep = useRef(1);
+
+  // Animate form panel on step change
+  useEffect(() => {
+    if (prevStep.current === step || !formPanelRef.current) return;
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      const direction = step > prevStep.current ? 1 : -1;
+      gsap.fromTo(formPanelRef.current,
+        { y: direction * 20, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.4, ease: 'power3.out' }
+      );
+    });
+    prevStep.current = step;
+  }, [step]);
+
+  // Entrance animation on mount
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.from(formPanelRef.current.querySelectorAll('.gsap-form-item'), {
+        y: 20,
+        autoAlpha: 0,
+        duration: 0.5,
+        stagger: 0.08,
+        ease: 'power3.out',
+      });
+    });
+  }, { scope: formPanelRef });
 
   const [primary, setPrimary] = useState({
     name: derivedName,
@@ -473,11 +507,11 @@ export const OnboardingView = () => {
         </div>
 
         {/* Form content */}
-        <main className="relative z-10 flex-1 flex items-center justify-center px-4 sm:px-6 py-4 overflow-y-auto">
+        <main ref={formPanelRef} className="relative z-10 flex-1 flex items-center justify-center px-4 sm:px-6 py-4 overflow-y-auto">
           <div className="w-full max-w-md">
 
             {/* Section heading */}
-            <div className="mb-4">
+            <div className="gsap-form-item mb-4">
               <h2 className="text-2xl font-black text-slate-900 font-display tracking-tight">
                 {step === 1 ? 'Your Profile' : 'Family Members'}
               </h2>

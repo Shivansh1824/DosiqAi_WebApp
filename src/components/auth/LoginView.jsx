@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   ArrowLeft,
   FileText,
@@ -13,6 +13,10 @@ import {
 } from 'lucide-react';
 import { AuthCard } from './AuthCard';
 import { DosiqLogo } from '../common/DosiqLogo';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
+
+gsap.registerPlugin(useGSAP);
 
 /* ── Interactive Showcase Widget ── */
 const PROFILES = {
@@ -93,6 +97,28 @@ const PROFILES = {
 const MedShowcase = () => {
   const [active, setActive] = useState('dad');
   const p = PROFILES[active];
+  const medsRef = useRef(null);
+
+  const handleTabChange = (key) => {
+    if (key === active) return;
+    // Animate out then in
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.to(medsRef.current, {
+        autoAlpha: 0, y: 6, duration: 0.15, ease: 'power2.in',
+        onComplete: () => {
+          setActive(key);
+          gsap.fromTo(medsRef.current,
+            { autoAlpha: 0, y: 10 },
+            { autoAlpha: 1, y: 0, duration: 0.25, ease: 'power2.out' }
+          );
+        },
+      });
+    });
+    mm.add('(prefers-reduced-motion: reduce)', () => {
+      setActive(key);
+    });
+  };
 
   return (
     <div className="rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/[0.12] shadow-2xl shadow-black/30 overflow-hidden">
@@ -108,7 +134,7 @@ const MedShowcase = () => {
             <button
               key={key}
               type="button"
-              onClick={() => setActive(key)}
+              onClick={() => handleTabChange(key)}
               className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-200 ${
                 active === key
                   ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/40'
@@ -135,7 +161,7 @@ const MedShowcase = () => {
         </div>
 
         {/* Medication rows */}
-        <div className="space-y-2">
+        <div ref={medsRef} className="space-y-2">
           {p.meds.map((med) => (
             <div
               key={med.name}
@@ -180,11 +206,39 @@ const MedShowcase = () => {
 /* ── Main page ── */
 
 export const LoginView = () => {
+  const leftRef = useRef(null);
+  const rightRef = useRef(null);
+
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+      // Left panel: stagger children in
+      tl.from(leftRef.current.querySelectorAll('.gsap-left-item'), {
+        y: 40,
+        autoAlpha: 0,
+        duration: 0.7,
+        stagger: 0.1,
+      });
+
+      // Right panel: slide in from right, slightly offset with left panel
+      tl.from(rightRef.current, {
+        x: 40,
+        autoAlpha: 0,
+        duration: 0.6,
+        ease: 'power3.out',
+      }, '-=0.45');
+    });
+  }, { scope: leftRef });
+
   return (
     <div className="min-h-screen flex overflow-hidden">
 
       {/* ── Left Panel ── */}
       <div
+        ref={leftRef}
         className="hidden lg:flex lg:w-[55%] xl:w-[57%] relative flex-col overflow-hidden"
         style={{
           background: 'radial-gradient(ellipse 90% 80% at 20% -10%, #0d9488 0%, #065f46 35%, #064e3b 70%, #022c22 100%)',
@@ -203,7 +257,7 @@ export const LoginView = () => {
         <div className="absolute -bottom-40 right-10 w-[500px] h-[500px] bg-teal-300/8 rounded-full blur-[150px] pointer-events-none" />
 
         {/* Top bar */}
-        <div className="relative z-10 px-10 pt-8 flex items-center justify-between shrink-0">
+        <div className="gsap-left-item relative z-10 px-10 pt-8 flex items-center justify-between shrink-0">
           <DosiqLogo size="default" showBadge={false} variant="light" />
         </div>
 
@@ -211,13 +265,13 @@ export const LoginView = () => {
         <div className="relative z-10 flex-1 flex flex-col justify-center px-10 py-8 gap-7">
 
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 self-start px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 text-xs font-semibold backdrop-blur-md">
+          <div className="gsap-left-item inline-flex items-center gap-2 self-start px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 text-xs font-semibold backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
             Family Health Intelligence
           </div>
 
-          {/* Option 1 Headline */}
-          <div>
+          {/* Headline */}
+          <div className="gsap-left-item">
             <h1
               className="font-extrabold tracking-tight text-white leading-[1.15] max-w-lg"
               style={{ fontSize: 'clamp(1.75rem, 2.5vw, 2.6rem)', textWrap: 'balance' }}
@@ -244,10 +298,12 @@ export const LoginView = () => {
           </div>
 
           {/* Interactive showcase */}
-          <MedShowcase />
+          <div className="gsap-left-item">
+            <MedShowcase />
+          </div>
 
           {/* Three mini trust pills */}
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="gsap-left-item flex items-center gap-2.5 flex-wrap">
             {[
               { icon: <Activity className="w-3 h-3" />, label: 'Handwritten Rx OCR' },
               { icon: <ShieldCheck className="w-3 h-3" />, label: 'Drug Conflict Screening' },
@@ -265,14 +321,14 @@ export const LoginView = () => {
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 px-10 pb-7 flex items-center justify-center text-[11px] text-white/35 font-medium shrink-0 border-t border-white/[0.07] pt-4 text-center">
+        <div className="gsap-left-item relative z-10 px-10 pb-7 flex items-center justify-center text-[11px] text-white/35 font-medium shrink-0 border-t border-white/[0.07] pt-4 text-center">
           <span>© 2026 dosiq AI · All rights reserved</span>
         </div>
       </div>
 
       {/* ── Right Panel ── */}
-      <div className="flex-1 flex flex-col bg-slate-50/80 relative">
-        {/* Dot grid for right panel — adds texture, removes clinical whiteness */}
+      <div ref={rightRef} className="flex-1 flex flex-col bg-slate-50/80 relative">
+        {/* Dot grid for right panel */}
         <div
           className="absolute inset-0 opacity-30 pointer-events-none"
           style={{

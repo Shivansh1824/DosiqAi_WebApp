@@ -56,6 +56,26 @@ export default defineConfig({
           }
         });
 
+        app.post('/api/extract-prescription', async (req, res) => {
+          try {
+            const { default: handler } = await import('./api/extract-prescription.js');
+            return await handler(req, res);
+          } catch (err) {
+            console.error('[DEV API] Error in extract-prescription:', err);
+            return res.status(500).json({ error: err.message });
+          }
+        });
+
+        app.post('/api/extract-report', async (req, res) => {
+          try {
+            const { default: handler } = await import('./api/extract-report.js');
+            return await handler(req, res);
+          } catch (err) {
+            console.error('[DEV API] Error in extract-report:', err);
+            return res.status(500).json({ error: err.message });
+          }
+        });
+
         server.middlewares.use(app);
       },
     },

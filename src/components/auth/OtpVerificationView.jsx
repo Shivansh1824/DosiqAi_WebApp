@@ -1,9 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mail, CheckCircle2, AlertCircle, Loader2, ArrowLeft, RefreshCw, KeyRound } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Loader2, ArrowLeft, KeyRound } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { DosiqLogo } from '../common/DosiqLogo';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
+
+gsap.registerPlugin(useGSAP);
 
 export const OtpVerificationView = ({ email, fullName, onBackToSignIn, onSuccess }) => {
+  const containerRef = useRef(null);
+  const inputRowRef = useRef(null);
+  const alertRef = useRef(null);
   const { verifyOtp, resendOtp } = useAuth();
   
   // Default to 6 digits (standard Supabase), but support 8 digits automatically if pasted or toggled
@@ -15,6 +22,20 @@ export const OtpVerificationView = ({ email, fullName, onBackToSignIn, onSuccess
   const [alert, setAlert] = useState(null);
 
   const inputRefs = useRef([]);
+
+  // Entrance animation on mount
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.from(containerRef.current.querySelectorAll('.gsap-otp-item'), {
+        y: 20,
+        autoAlpha: 0,
+        duration: 0.5,
+        stagger: 0.08,
+        ease: 'power3.out',
+      });
+    });
+  }, { scope: containerRef });
 
   // Auto-focus first input on mount
   useEffect(() => {
@@ -120,6 +141,18 @@ export const OtpVerificationView = ({ email, fullName, onBackToSignIn, onSuccess
         type: 'error',
         message: err.message || 'Invalid or expired verification code. Please check and try again.',
       });
+      // Shake the input row on error
+      const mm = gsap.matchMedia();
+      mm.add('(prefers-reduced-motion: no-preference)', () => {
+        if (inputRowRef.current) {
+          gsap.timeline()
+            .to(inputRowRef.current, { x: -6, duration: 0.07, ease: 'none' })
+            .to(inputRowRef.current, { x: 6, duration: 0.07, ease: 'none' })
+            .to(inputRowRef.current, { x: -4, duration: 0.07, ease: 'none' })
+            .to(inputRowRef.current, { x: 4, duration: 0.07, ease: 'none' })
+            .to(inputRowRef.current, { x: 0, duration: 0.07, ease: 'none' });
+        }
+      });
     } finally {
       setIsLoading(false);
     }
@@ -150,14 +183,26 @@ export const OtpVerificationView = ({ email, fullName, onBackToSignIn, onSuccess
     }
   };
 
+  // Alert entrance on each new alert
+  useEffect(() => {
+    if (!alert || !alertRef.current) return;
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.fromTo(alertRef.current,
+        { y: -8, autoAlpha: 0 },
+        { y: 0, autoAlpha: 1, duration: 0.3, ease: 'power2.out' }
+      );
+    });
+  }, [alert]);
+
   return (
-    <div className="w-full max-w-sm mx-auto">
+    <div className="w-full max-w-sm mx-auto" ref={containerRef}>
       <div className="bg-white rounded-2xl p-7 sm:p-8 shadow-xl shadow-slate-200/70 border border-slate-200 relative overflow-hidden text-center">
         {/* Top accent bar */}
         <div className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500" />
 
         {/* Envelope icon & Header */}
-        <div className="mb-5 flex flex-col items-center">
+        <div className="gsap-otp-item mb-5 flex flex-col items-center">
           <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-600 shadow-sm mb-3.5">
             <KeyRound className="w-6 h-6" />
           </div>
@@ -173,6 +218,7 @@ export const OtpVerificationView = ({ email, fullName, onBackToSignIn, onSuccess
         {/* Alert message */}
         {alert && (
           <div
+            ref={alertRef}
             className={`mb-4 p-3 rounded-xl flex items-start gap-2.5 text-xs text-left ${
               alert.type === 'error'
                 ? 'bg-red-50 border border-red-200 text-red-800'
@@ -191,7 +237,8 @@ export const OtpVerificationView = ({ email, fullName, onBackToSignIn, onSuccess
         {/* OTP Input Fields */}
         <form onSubmit={handleVerify}>
           <div
-            className="flex justify-center items-center gap-2 sm:gap-2.5 my-5"
+            ref={inputRowRef}
+            className="gsap-otp-item flex justify-center items-center gap-2 sm:gap-2.5 my-5"
             onPaste={handlePaste}
           >
             {otpValues.map((val, idx) => (
@@ -219,7 +266,7 @@ export const OtpVerificationView = ({ email, fullName, onBackToSignIn, onSuccess
           <button
             type="submit"
             disabled={isLoading || otpValues.join('').length !== numDigits}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm shadow-md shadow-emerald-600/20 transition-all duration-150 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="gsap-otp-item w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm shadow-md shadow-emerald-600/20 transition-all duration-150 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <>
@@ -233,7 +280,7 @@ export const OtpVerificationView = ({ email, fullName, onBackToSignIn, onSuccess
         </form>
 
         {/* Resend & format toggle options */}
-        <div className="mt-5 space-y-3 pt-4 border-t border-slate-100 text-xs text-slate-500">
+        <div className="gsap-otp-item mt-5 space-y-3 pt-4 border-t border-slate-100 text-xs text-slate-500">
           <div className="flex items-center justify-between">
             <span>Didn't get the code?</span>
             <button

@@ -1,6 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Sparkles, Shield, Heart, Zap, CheckCircle2, Users } from 'lucide-react';
 import { DosiqLogo } from '../common/DosiqLogo';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
+
+gsap.registerPlugin(useGSAP);
 
 const PRESET_EMOJIS = {
   'preset-1': '👨‍⚕️', 'preset-2': '👩‍⚕️', 'preset-3': '🧑‍💼',
@@ -122,9 +126,24 @@ export const Step2PreviewCard = ({ members, primaryName, primaryAvatar }) => {
 // ── Left Panel — dynamic content per step ────────────────────────────────────
 export const OnboardingLeftPanel = ({ step, primaryName, avatar, doseTime, familyMembers }) => {
   const isStep1 = step === 1;
+  const panelRef = useRef(null);
+
+  useGSAP(() => {
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.from(panelRef.current.querySelectorAll('.gsap-panel-item'), {
+        y: 30,
+        autoAlpha: 0,
+        duration: 0.65,
+        stagger: 0.1,
+        ease: 'power3.out',
+      });
+    });
+  }, { scope: panelRef, dependencies: [step], revertOnUpdate: true });
 
   return (
     <div
+      ref={panelRef}
       className="hidden lg:flex lg:w-[52%] xl:w-[54%] relative flex-col overflow-hidden"
       style={{
         background: 'radial-gradient(ellipse 90% 80% at 20% -10%, #0d9488 0%, #065f46 35%, #064e3b 70%, #022c22 100%)',
@@ -140,7 +159,7 @@ export const OnboardingLeftPanel = ({ step, primaryName, avatar, doseTime, famil
       <div className="absolute -bottom-40 right-10 w-[500px] h-[500px] bg-teal-300/8 rounded-full blur-[150px] pointer-events-none" />
 
       {/* Logo */}
-      <div className="relative z-10 px-10 pt-8 shrink-0">
+      <div className="gsap-panel-item relative z-10 px-10 pt-8 shrink-0">
         <DosiqLogo size="default" showBadge={false} variant="light" />
       </div>
 
@@ -148,13 +167,13 @@ export const OnboardingLeftPanel = ({ step, primaryName, avatar, doseTime, famil
       <div className="relative z-10 flex-1 flex flex-col justify-center px-10 py-8 gap-6">
 
         {/* Step badge */}
-        <div className="inline-flex items-center gap-2 self-start px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 text-xs font-semibold">
+        <div className="gsap-panel-item inline-flex items-center gap-2 self-start px-3.5 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 text-xs font-semibold">
           <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
           {isStep1 ? 'Step 1 of 2 — Your Profile' : 'Step 2 of 2 — Family Network'}
         </div>
 
         {/* Headline — morphs per step */}
-        <div>
+        <div className="gsap-panel-item">
           <h1
             className="font-extrabold tracking-tight text-white leading-[1.15] max-w-lg"
             style={{ fontSize: 'clamp(1.6rem, 2.2vw, 2.4rem)', textWrap: 'balance' }}
@@ -169,14 +188,16 @@ export const OnboardingLeftPanel = ({ step, primaryName, avatar, doseTime, famil
         </div>
 
         {/* Live reactive preview card */}
-        {isStep1 ? (
-          <Step1PreviewCard name={primaryName} avatar={avatar} doseTime={doseTime} />
-        ) : (
-          <Step2PreviewCard members={familyMembers} primaryName={primaryName} primaryAvatar={avatar} />
-        )}
+        <div className="gsap-panel-item">
+          {isStep1 ? (
+            <Step1PreviewCard name={primaryName} avatar={avatar} doseTime={doseTime} />
+          ) : (
+            <Step2PreviewCard members={familyMembers} primaryName={primaryName} primaryAvatar={avatar} />
+          )}
+        </div>
 
         {/* Trust signals */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="gsap-panel-item flex items-center gap-2 flex-wrap">
           {[
             { icon: <Shield className="w-3 h-3" />, label: 'Private encrypted vault' },
             { icon: <Heart className="w-3 h-3" />, label: 'Built for families' },
@@ -193,7 +214,7 @@ export const OnboardingLeftPanel = ({ step, primaryName, avatar, doseTime, famil
         </div>
 
         {/* Contextual feature rows */}
-        <div className="flex flex-col gap-2">
+        <div className="gsap-panel-item flex flex-col gap-2">
           {[
             { emoji: '🔍', title: 'AI Rx Decoder', desc: 'Handwriting decoded in 1.1s' },
             { emoji: '🛡️', title: 'Drug Conflict Shield', desc: 'Zero interaction risks' },

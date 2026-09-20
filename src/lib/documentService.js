@@ -182,6 +182,36 @@ export const checkDocumentValidity = async (cloudFileKey, docType) => {
   return data.analysis;
 };
 
+/**
+ * Calls the appropriate Gemini clinical extraction endpoint based on document type.
+ * Returns the comprehensive A+ grade structured clinical JSON.
+ *
+ * @param {string} cloudFileKey - Supabase path to the uploaded file
+ * @param {string} docType - 'Prescription' | 'Blood Test'
+ * @returns {Promise<Object>}
+ */
+export const extractDocumentData = async (cloudFileKey, docType) => {
+  const endpoint = docType === 'Prescription'
+    ? '/api/extract-prescription'
+    : '/api/extract-report';
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cloud_file_key: cloudFileKey }),
+  });
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error || `Clinical extraction failed (HTTP ${response.status})`);
+  }
+
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || 'Clinical extraction returned unsuccessful');
+
+  return data.extraction;
+};
+
 
 /**
  * Subscribes to cross-device mobile upload events via Supabase Realtime broadcast.
