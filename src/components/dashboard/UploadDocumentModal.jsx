@@ -92,24 +92,57 @@ export const UploadDocumentModal = ({
   };
 
   const processFiles = (fileList) => {
-    fileList.forEach(f => {
+    const newFiles = Array.from(fileList);
+    const hasPdf = newFiles.some(f => f.type === 'application/pdf');
+
+    if (hasPdf) {
+      // PDF: treat as standalone — take only the first PDF, clear everything else
+      const pdfFile = newFiles.find(f => f.type === 'application/pdf');
       const reader = new FileReader();
       reader.onload = (event) => {
-        setFiles(prev => [
-          ...prev,
-          {
-            id: `file_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            name: f.name,
-            size: f.size,
-            type: f.type,
-            dataUrl: event.target.result,
-            capturedVia: 'desktop_upload',
-          },
-        ]);
+        setFiles([{
+          id: `file_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          name: pdfFile.name,
+          size: pdfFile.size,
+          type: pdfFile.type,
+          dataUrl: event.target.result,
+          capturedVia: 'desktop_upload',
+        }]);
       };
-      reader.readAsDataURL(f);
+      reader.readAsDataURL(pdfFile);
+      return;
+    }
+
+    // Image files: check if we already have a PDF locked in
+    setFiles(prev => {
+      if (prev.length === 1 && prev[0].type === 'application/pdf') {
+        // PDF is already locked — ignore new additions silently
+        return prev;
+      }
+      const added = newFiles.map(f => ({
+        id: `file_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        dataUrl: null, // Filled via FileReader below
+        capturedVia: 'desktop_upload',
+      }));
+      // Kick off FileReader for each
+      newFiles.forEach((f, i) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setFiles(current =>
+            current.map(c => c.id === added[i].id ? { ...c, dataUrl: event.target.result } : c)
+          );
+        };
+        reader.readAsDataURL(f);
+      });
+      return [...prev, ...added];
     });
   };
+
+  // Derived: is the current file list locked to a single PDF?
+  const isPdfLocked = files.length === 1 && files[0].type === 'application/pdf';
 
   // Quick sample loader for fast testing
   const handleSample = (type) => {
@@ -544,33 +577,54 @@ export const UploadDocumentModal = ({
                   </button>
                 </div>
 
-                {/* 1. Desktop File Dropzone (As it was originally) */}
+                {/* 1. Desktop File Dropzone */}
                 <div className="flex flex-col gap-2.5">
-                  <label
-                    htmlFor="desktop-file-input"
-                    className={`flex flex-col items-center justify-center gap-2 h-28 rounded-2xl border-2 border-dashed cursor-pointer transition-all duration-200 ${
-                      dragging
-                        ? 'border-emerald-500 bg-emerald-50'
-                        : 'border-slate-200 bg-slate-50/60 hover:border-emerald-400 hover:bg-emerald-50/30'
-                    }`}
-                    onDragOver={e => { e.preventDefault(); setDragging(true); }}
-                    onDragLeave={() => setDragging(false)}
-                    onDrop={handleDrop}
-                  >
-                    <Upload className="w-6 h-6 text-slate-400" />
-                    <div className="text-center">
-                      <p className="text-xs font-bold text-slate-700">Drop PDF, JPG, PNG here or browse from computer</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Maximum file size: 15 MB · Supports multi-page upload</p>
+                  {isPdfLocked ? (
+                    // PDF locked state
+                    <div className="flex items-center gap-3 h-28 px-5 rounded-2xl border-2 border-sky-300 bg-sky-50/60">
+                      <div className="w-10 h-10 rounded-xl bg-sky-100 border border-sky-200 flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5 text-sky-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-sky-800 truncate">{files[0].name}</p>
+                        <p className="text-[10px] text-sky-600 mt-0.5">
+                          PDF uploaded · treated as a complete standalone document
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Remove it below to upload individual images instead.
+                        </p>
+                      </div>
+                      <div className="w-6 h-6 rounded-full bg-sky-500 flex items-center justify-center shrink-0">
+                        <Check className="w-3.5 h-3.5 text-white" />
+                      </div>
                     </div>
-                    <input
-                      id="desktop-file-input"
-                      type="file"
-                      multiple
-                      className="hidden"
-                      accept=".pdf,.png,.jpg,.jpeg,.heic"
-                      onChange={handleFileInput}
-                    />
-                  </label>
+                  ) : (
+                    <label
+                      htmlFor="desktop-file-input"
+                      className={`flex flex-col items-center justify-center gap-2 h-28 rounded-2xl border-2 border-dashed cursor-pointer transition-all duration-200 ${
+                        dragging
+                          ? 'border-emerald-500 bg-emerald-50'
+                          : 'border-slate-200 bg-slate-50/60 hover:border-emerald-400 hover:bg-emerald-50/30'
+                      }`}
+                      onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                      onDragLeave={() => setDragging(false)}
+                      onDrop={handleDrop}
+                    >
+                      <Upload className="w-6 h-6 text-slate-400" />
+                      <div className="text-center">
+                        <p className="text-xs font-bold text-slate-700">Drop PDF, JPG, PNG here or browse from computer</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Maximum file size: 15 MB · Supports multi-page upload</p>
+                      </div>
+                      <input
+                        id="desktop-file-input"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        accept=".pdf,.png,.jpg,.jpeg,.heic"
+                        onChange={handleFileInput}
+                      />
+                    </label>
+                  )}
 
                   {/* Judge / Evaluator Fast-Track Explainer Notice */}
                   <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs">
@@ -591,14 +645,16 @@ export const UploadDocumentModal = ({
                   </div>
                 </div>
 
-                {/* 2. QR Code Phone Sync Card */}
-                <QrCodeSyncCard
-                  sessionId={sessionId}
-                  activeProfile={selectedMember}
-                  docType={docType}
-                  onPhotoReceived={handleMobilePhotoReceived}
-                  isSynced={files.some(f => f.capturedVia === 'mobile_camera')}
-                />
+                {/* 2. QR Code Phone Sync Card — hidden when a PDF is locked */}
+                {!isPdfLocked && (
+                  <QrCodeSyncCard
+                    sessionId={sessionId}
+                    activeProfile={selectedMember}
+                    docType={docType}
+                    onPhotoReceived={handleMobilePhotoReceived}
+                    isSynced={files.some(f => f.capturedVia === 'mobile_camera')}
+                  />
+                )}
 
                 {/* 3. Synced Document Photo Gallery (Placed BELOW the QR card) */}
                 {files.length > 0 && (
