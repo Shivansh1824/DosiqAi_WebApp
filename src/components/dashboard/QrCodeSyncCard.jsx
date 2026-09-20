@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Smartphone, CheckCircle2, QrCode, ExternalLink } from 'lucide-react';
+import { Smartphone, QrCode } from 'lucide-react';
 import { subscribeToMobileSync } from '../../lib/documentService';
 
 /**
@@ -13,7 +13,6 @@ export const QrCodeSyncCard = ({
   activeProfile,
   docType,
   onPhotoReceived,
-  isSynced,
 }) => {
   const patientName = activeProfile?.name || activeProfile?.relationship || 'Family Member';
 
@@ -59,7 +58,7 @@ export const QrCodeSyncCard = ({
       />
 
       {/* QR Code Container (Compact 100px) */}
-      <div className="relative shrink-0 flex flex-col items-center gap-1.5">
+      <div className="relative shrink-0 flex items-center justify-center">
         <div className="p-2 bg-white rounded-xl shadow-md border border-slate-700/50 flex items-center justify-center">
           {syncUrl ? (
             <QRCodeSVG
@@ -76,43 +75,17 @@ export const QrCodeSyncCard = ({
             </div>
           )}
         </div>
-
-        {/* Status Pill */}
-        {isSynced ? (
-          <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full animate-in zoom-in-95">
-            <CheckCircle2 className="w-2.5 h-2.5" /> Synced from Phone
-          </span>
-        ) : (
-          <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>Awaiting phone…</span>
-          </span>
-        )}
       </div>
 
       {/* Instructions & Context */}
       <div className="flex-1 flex flex-col gap-1.5 text-left min-w-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <div className="w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <Smartphone className="w-3 h-3" />
-            </div>
-            <h4 className="text-xs font-black text-white tracking-tight">
-              Scan &amp; Snap from Phone
-            </h4>
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+            <Smartphone className="w-3 h-3" />
           </div>
-
-          {syncUrl && (
-            <a
-              href={syncUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
-            >
-              <span>Test tab</span>
-              <ExternalLink className="w-2.5 h-2.5" />
-            </a>
-          )}
+          <h4 className="text-xs font-black text-white tracking-tight">
+            Scan &amp; Snap from Phone
+          </h4>
         </div>
 
         <p className="text-[11px] text-slate-300 leading-snug font-medium">
