@@ -626,23 +626,25 @@ export const UploadDocumentModal = ({
                     </label>
                   )}
 
-                  {/* Judge / Evaluator Fast-Track Explainer Notice */}
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs">
-                    <div className="flex items-center gap-2 min-w-0 pr-2">
-                      <Zap className="w-4 h-4 text-amber-500 shrink-0" />
-                      <p className="text-[11px] text-slate-600 leading-snug">
-                        <strong className="text-amber-800 font-bold">Judge / Evaluator Fast-Track:</strong> No medical file on hand? Click to load our pre-configured sample {docType === 'Blood Test' ? 'lab report' : 'prescription'} to test clinical extraction instantly.
-                      </p>
+                  {/* Judge / Evaluator Fast-Track — hidden when a real PDF is uploaded */}
+                  {!isPdfLocked && (
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs">
+                      <div className="flex items-center gap-2 min-w-0 pr-2">
+                        <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+                        <p className="text-[11px] text-slate-600 leading-snug">
+                          <strong className="text-amber-800 font-bold">Judge / Evaluator Fast-Track:</strong> No medical file on hand? Click to load our pre-configured sample {docType === 'Blood Test' ? 'lab report' : 'prescription'} to test clinical extraction instantly.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSample(docType)}
+                        className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 active:scale-95 px-3 py-1.5 rounded-xl border border-amber-300 shadow-2xs transition-all shrink-0"
+                      >
+                        <Zap className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Load Sample {docType === 'Blood Test' ? 'Lab' : 'Rx'}</span>
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleSample(docType)}
-                      className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 active:scale-95 px-3 py-1.5 rounded-xl border border-amber-300 shadow-2xs transition-all shrink-0"
-                    >
-                      <Zap className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Load Sample {docType === 'Blood Test' ? 'Lab' : 'Rx'}</span>
-                    </button>
-                  </div>
+                  )}
                 </div>
 
                 {/* 2. QR Code Phone Sync Card — hidden when a PDF is locked */}
@@ -656,16 +658,64 @@ export const UploadDocumentModal = ({
                   />
                 )}
 
-                {/* 3. Synced Document Photo Gallery (Placed BELOW the QR card) */}
+                {/* 3. Document Display: PDF iframe preview OR image gallery */}
                 {files.length > 0 && (
-                  <div className="p-3.5 rounded-2xl bg-emerald-50/60 border-2 border-emerald-300">
-                    <DocumentPhotoGallery
-                      files={files}
-                      onRemove={handleRemoveFile}
-                      onZoom={setZoomImage}
-                      onAddClick={() => document.getElementById('desktop-file-input')?.click()}
-                    />
-                  </div>
+                  isPdfLocked ? (
+                    // PDF Preview Card — native browser iframe renders page 1
+                    <div className="rounded-2xl overflow-hidden border-2 border-sky-200 bg-sky-50/40">
+                      <div className="flex items-center justify-between px-3.5 py-2 border-b border-sky-100">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-3.5 h-3.5 text-sky-600" />
+                          <span className="text-[11px] font-bold text-sky-800 truncate max-w-[200px]">{files[0].name}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => window.open(files[0].dataUrl, '_blank')}
+                          className="text-[10px] font-bold text-sky-600 hover:text-sky-800 bg-sky-100 hover:bg-sky-200 px-2.5 py-1 rounded-lg transition-colors shrink-0"
+                        >
+                          Open Full PDF ↗
+                        </button>
+                      </div>
+                      {/* Clickable iframe preview — click opens full PDF in new tab */}
+                      <div
+                        className="relative cursor-pointer group"
+                        onClick={() => window.open(files[0].dataUrl, '_blank')}
+                        title="Click to open full PDF"
+                      >
+                        <iframe
+                          src={`${files[0].dataUrl}#page=1&toolbar=0&navpanes=0&scrollbar=0`}
+                          className="w-full h-56 border-0 pointer-events-none"
+                          title="PDF Preview"
+                        />
+                        {/* Hover overlay */}
+                        <div className="absolute inset-0 bg-sky-900/0 group-hover:bg-sky-900/10 transition-colors flex items-center justify-center">
+                          <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[11px] font-black text-white bg-sky-600 px-3 py-1.5 rounded-xl shadow-lg">
+                            Click to open full PDF
+                          </span>
+                        </div>
+                      </div>
+                      {/* Remove PDF button */}
+                      <div className="px-3.5 py-2.5 border-t border-sky-100 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setFiles([])}
+                          className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg transition-colors"
+                        >
+                          ✕ Remove PDF
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Image gallery for multi-image uploads
+                    <div className="p-3.5 rounded-2xl bg-emerald-50/60 border-2 border-emerald-300">
+                      <DocumentPhotoGallery
+                        files={files}
+                        onRemove={handleRemoveFile}
+                        onZoom={setZoomImage}
+                        onAddClick={() => document.getElementById('desktop-file-input')?.click()}
+                      />
+                    </div>
+                  )
                 )}
 
                 {/* Error message */}
