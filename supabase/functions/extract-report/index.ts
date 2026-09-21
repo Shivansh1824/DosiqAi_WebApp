@@ -107,9 +107,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { cloud_file_key } = await req.json();
-    if (!cloud_file_key) {
-      return new Response(JSON.stringify({ error: 'Missing cloud_file_key' }), {
+    const { cloud_file_key, file_base64, mime_type } = await req.json();
+    if (!cloud_file_key && !file_base64) {
+      return new Response(JSON.stringify({ error: 'Missing cloud_file_key or file_base64' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -119,26 +119,41 @@ Deno.serve(async (req: Request) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    const storagePath = cloud_file_key.replace(/^medical-vault\//, '');
-    const { data: fileData, error: downloadError } = await supabase
-      .storage
-      .from('medical-vault')
-      .download(storagePath);
+    const storagePath = cloud_file_key ? cloud_file_key.replace(/^medical-vault\//, '') : `upload_${Date.now()}.pdf`;
+    let base64Data = file_base64;
+    let resolvedMime = mime_type;
 
-    if (downloadError || !fileData) {
-      console.error('Supabase Download Error:', downloadError);
-      return new Response(JSON.stringify({ error: 'Failed to download secure document from vault.' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    if (!base64Data && cloud_file_key) {
+      const { data: fileData, error: downloadError } = await supabase
+        .storage
+        .from('medical-vault')
+        .download(storagePath);
 
-    const mimeType = storagePath.toLowerCase().endsWith('.pdf') ? 'application/pdf' :
+      if (downloadError || !fileData) {
+        console.error('Supabase Download Error:', downloadError);
+        return new Response(JSON.stringify({ error: 'Failed to download secure document from vault.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      resolvedMime = storagePath.toLowerCase().endsWith('.pdf') ? 'application/pdf' :
                      storagePath.toLowerCase().endsWith('.png') ? 'image/png' :
                      'image/jpeg';
 
-    const arrayBuffer = await fileData.arrayBuffer();
-    const base64Data = encodeBase64(arrayBuffer);
+      const arrayBuffer = await fileData.arrayBuffer();
+      base64Data = encodeBase64(arrayBuffer);
+    } else if (base64Data) {
+      if (base64Data.includes(',')) {
+        const parts = base64Data.split(',');
+        if (!resolvedMime) {
+          const match = parts[0].match(/data:(.*?);base64/);
+          if (match) resolvedMime = match[1];
+        }
+        base64Data = parts[1];
+      }
+      if (!resolvedMime) resolvedMime = 'application/pdf';
+    }
 
     const candidateKeys = [
       Deno.env.get('GEMINI_API_KEY_REPORT'),
@@ -149,7 +164,7 @@ Deno.serve(async (req: Request) => {
     const extraction = await generateClinicalAI({
       prompt: REPORT_EXTRACTION_PROMPT,
       base64Data,
-      mimeType,
+      mimeType: resolvedMime,
       candidateKeys,
     });
 
