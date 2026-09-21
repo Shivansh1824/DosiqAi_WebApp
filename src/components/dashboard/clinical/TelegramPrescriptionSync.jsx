@@ -1,15 +1,7 @@
 import React, { useState } from 'react';
 import { Send, CheckCircle2, Clock, Zap, ExternalLink, Bell, Smartphone, ShieldCheck, Sparkles, Edit3 } from 'lucide-react';
 import { TimePickerModal } from '../../onboarding/TimePickerModal';
-
-// Format "HH:MM" → "h:MM AM/PM"
-const fmtTime = (t) => {
-  if (!t) return '--:--';
-  const [hh, mm] = t.split(':').map(Number);
-  const period = hh >= 12 ? 'PM' : 'AM';
-  const h = hh % 12 === 0 ? 12 : hh % 12;
-  return `${h}:${String(mm).padStart(2, '0')} ${period}`;
-};
+import { isMedicationSos, calculateDoseSchedule, formatTime12h } from '../../../lib/medicationScheduler';
 
 export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = [], durationDays = 3 }) => {
   const [simulated, setSimulated] = useState(false);
@@ -24,25 +16,40 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
   });
   const [openSlotPicker, setOpenSlotPicker] = useState(null);
 
-  // Group medicines by timing slot
-  const morningMeds = medicines.filter(m => {
+  // Filter out SOS medications from fixed reminder loops
+  const sosMeds = medicines.filter(m => isMedicationSos(m));
+  const scheduledMeds = medicines.filter(m => !isMedicationSos(m));
+
+  // High-frequency medications (>= 4 times per day)
+  const highFreqMeds = scheduledMeds.filter(m => {
+    const times = m.timing?.total_times_per_day || (m.timing?.dosage ? m.timing.dosage.split('-').filter(x => parseInt(x, 10) > 0).length : 1);
+    return times >= 4;
+  });
+
+  // Group scheduled medicines by timing slot
+  const morningMeds = scheduledMeds.filter(m => {
     const dosage = m.timing?.dosage;
     if (dosage && dosage.split('-')[0] > 0) return true;
-    if (m.timing?.total_times_per_day >= 2) return true;
+    const total = m.timing?.total_times_per_day;
+    if (total >= 2) return true;
+    if (total === 1 && (!dosage || dosage === '1-0-0')) return true;
     return false;
   });
 
-  const afternoonMeds = medicines.filter(m => {
+  const afternoonMeds = scheduledMeds.filter(m => {
     const dosage = m.timing?.dosage;
     if (dosage && dosage.split('-')[1] > 0) return true;
-    if (m.timing?.total_times_per_day >= 3) return true;
+    const total = m.timing?.total_times_per_day;
+    if (total >= 3) return true;
     return false;
   });
 
-  const nightMeds = medicines.filter(m => {
+  const nightMeds = scheduledMeds.filter(m => {
     const dosage = m.timing?.dosage;
     if (dosage && dosage.split('-')[2] > 0) return true;
-    if (m.timing?.total_times_per_day >= 1) return true;
+    const total = m.timing?.total_times_per_day;
+    if (total >= 2 && (!dosage || dosage.split('-')[2] > 0)) return true;
+    if (total === 1 && dosage === '0-0-1') return true;
     return false;
   });
 
@@ -134,7 +141,7 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
                     title="Click to change morning reminder time"
                   >
                     <Clock className="w-2.5 h-2.5 text-emerald-300" />
-                    <span>{fmtTime(slotTimes.morning)}</span>
+                    <span>{formatTime12h(slotTimes.morning)}</span>
                     <Edit3 className="w-2.5 h-2.5 opacity-70" />
                   </button>
                 </div>
@@ -160,7 +167,7 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
                     title="Click to change afternoon reminder time"
                   >
                     <Clock className="w-2.5 h-2.5 text-emerald-300" />
-                    <span>{fmtTime(slotTimes.afternoon)}</span>
+                    <span>{formatTime12h(slotTimes.afternoon)}</span>
                     <Edit3 className="w-2.5 h-2.5 opacity-70" />
                   </button>
                 </div>
@@ -186,7 +193,7 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
                     title="Click to change night reminder time"
                   >
                     <Clock className="w-2.5 h-2.5 text-emerald-300" />
-                    <span>{fmtTime(slotTimes.night)}</span>
+                    <span>{formatTime12h(slotTimes.night)}</span>
                     <Edit3 className="w-2.5 h-2.5 opacity-70" />
                   </button>
                 </div>
@@ -201,6 +208,54 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
             </div>
           </div>
 
+          {/* High Frequency Meds Notification (if any medication is 4x, 5x, or 6x daily) */}
+          {highFreqMeds.length > 0 && (
+            <div className="bg-emerald-900/50 border border-emerald-400/30 rounded-2xl p-3.5 flex flex-col gap-2 backdrop-blur-sm">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-emerald-200">
+                    High Frequency Regimen Active ({highFreqMeds.length} Medication{highFreqMeds.length > 1 ? 's' : ''})
+                  </span>
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-300/30">
+                    Cyclic Safe Spacing
+                  </span>
+                </div>
+                <span className="text-[10px] text-emerald-200/80 font-mono">
+                  Calculated safe 2.75h – 4.5h breaks
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {highFreqMeds.map((m, idx) => {
+                  const times = m.timing?.total_times_per_day || 4;
+                  const slots = calculateDoseSchedule(times);
+                  return (
+                    <div key={idx} className="bg-white/10 rounded-xl px-3 py-1.5 text-xs text-emerald-100 flex items-center gap-2 border border-white/10">
+                      <span className="font-bold">{m.exact_written_name || m.name}:</span>
+                      <span className="font-mono text-[11px] text-emerald-300">
+                        {slots.map(s => s.time12).join(' • ')}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* SOS / As Needed Notice (if any medication is SOS) */}
+          {sosMeds.length > 0 && (
+            <div className="bg-amber-950/40 border border-amber-500/30 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                <span className="font-bold text-amber-200">
+                  On-Demand (SOS): {sosMeds.map(m => m.exact_written_name || m.name).join(', ')}
+                </span>
+              </div>
+              <span className="text-[10px] font-mono text-amber-300/80 bg-amber-900/40 px-2 py-0.5 rounded-md border border-amber-400/20">
+                No scheduled alarms (Taken as needed)
+              </span>
+            </div>
+          )}
+
           {/* Live Simulator for Hackathon Judges & Evaluators */}
           <div className="bg-black/30 border border-emerald-500/30 rounded-2xl p-4 flex flex-col gap-3 backdrop-blur-sm">
             <div className="flex items-center justify-between flex-wrap gap-3">
@@ -213,7 +268,7 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
                   </span>
                 </div>
                 <p className="text-[11px] text-emerald-100/80 leading-relaxed">
-                  <strong>For Hackathon Judges:</strong> Test real-time Telegram reminder notifications and 1-tap adherence logging right now, without waiting for the scheduled dose times ({fmtTime(slotTimes.morning)}, {fmtTime(slotTimes.afternoon)}, {fmtTime(slotTimes.night)}).
+                  <strong>For Hackathon Judges:</strong> Test real-time Telegram reminder notifications and 1-tap adherence logging right now, without waiting for the scheduled dose times ({formatTime12h(slotTimes.morning)}, {formatTime12h(slotTimes.afternoon)}, {formatTime12h(slotTimes.night)}).
                 </p>
               </div>
               <button
@@ -240,7 +295,7 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
 
                 <p className="text-xs text-slate-800 leading-relaxed font-sans">
                   ⏰ <strong>Medicine Reminder for {patientName}:</strong><br />
-                  It&apos;s {fmtTime(slotTimes.morning)} (Morning Dose). Time for {morningMeds[0]?.exact_written_name || 'Prescription Medication'}.<br />
+                  It&apos;s {formatTime12h(slotTimes.morning)} (Morning Dose). Time for {morningMeds[0]?.exact_written_name || 'Prescription Medication'}.<br />
                   <span className="text-slate-500 text-[11px]">
                     Take {morningMeds[0]?.strength || 'as prescribed'} {morningMeds[0]?.timing?.relation_to_meal ? `(${morningMeds[0].timing.relation_to_meal.replace('_', ' ')})` : 'after meals'}.
                   </span>
