@@ -457,32 +457,7 @@ export const DashboardView = () => {
     }));
   };
 
-  const vitalsBiomarkers = {
-    bloodSugar: [
-      { month: 'Apr', fasting: 92, postprandial: 135 },
-      { month: 'May', fasting: 90, postprandial: 130 },
-      { month: 'Jun', fasting: 88, postprandial: 125 },
-      { month: 'Jul', fasting: 94, postprandial: 128 },
-      { month: 'Aug', fasting: 89, postprandial: 122 },
-      { month: 'Sep', fasting: 86, postprandial: 118 },
-    ],
-    hba1c: [
-      { month: 'Apr', value: 5.9 },
-      { month: 'May', value: 5.8 },
-      { month: 'Jun', value: 5.7 },
-      { month: 'Jul', value: 5.6 },
-      { month: 'Aug', value: 5.5 },
-      { month: 'Sep', value: 5.4 },
-    ],
-    bp: [
-      { month: 'Apr', systolic: 128, diastolic: 84 },
-      { month: 'May', systolic: 125, diastolic: 82 },
-      { month: 'Jun', systolic: 122, diastolic: 80 },
-      { month: 'Jul', systolic: 120, diastolic: 79 },
-      { month: 'Aug', systolic: 118, diastolic: 78 },
-      { month: 'Sep', systolic: 117, diastolic: 76 },
-    ],
-  };
+  const vitalsBiomarkers = {};
 
   // Filtered slices for active profile (supports 'all' for consolidated view)
   const isAllFamily = !activeProfile || activeProfile.id === 'all';
