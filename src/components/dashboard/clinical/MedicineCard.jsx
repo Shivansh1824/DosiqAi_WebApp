@@ -39,10 +39,14 @@ const ConfidenceBadge = ({ value }) => {
 
 export const MedicineCard = ({ med, index }) => {
   const [expanded, setExpanded] = useState(false);
-  const timingCode = med.timing?.dosage || '1-0-0';
-  const timingInfo = TIMING_COLORS[timingCode] || { label: timingCode, slots: [] };
+  const timingCode = med.timing?.dosage || null;
+  const timingInfo = timingCode ? (TIMING_COLORS[timingCode] || { label: timingCode, slots: [] }) : null;
 
-  const mealText = MEAL_LABELS[med.timing?.relation_to_meal] || med.timing?.relation_to_meal || 'As directed';
+  const mealText = med.timing?.relation_to_meal && med.timing.relation_to_meal !== 'any'
+    ? (MEAL_LABELS[med.timing.relation_to_meal] || med.timing.relation_to_meal)
+    : null;
+
+  const isSos = med.interval_days === 0 || (med.dosage_instruction && med.dosage_instruction.toLowerCase().includes('sos'));
 
   return (
     <div className="gsap-med-card bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200">
@@ -64,16 +68,29 @@ export const MedicineCard = ({ med, index }) => {
                 <h4 className="text-base font-black text-slate-900 tracking-tight leading-snug">
                   {med.exact_written_name}
                 </h4>
+                {med.strength && !med.exact_written_name.includes(med.strength) && (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200">
+                    {med.strength}
+                  </span>
+                )}
                 {med.form && (
                   <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
                     {med.form}
                   </span>
                 )}
+                {isSos && (
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                    SOS / As Needed
+                  </span>
+                )}
               </div>
 
               {med.assumed_enriched_data?.scientific_name && (
-                <p className="text-xs text-emerald-700 font-semibold mt-0.5">
-                  {med.assumed_enriched_data.scientific_name}
+                <p className="text-xs text-emerald-700 font-semibold mt-0.5 flex items-center gap-1.5">
+                  <span>{med.assumed_enriched_data.scientific_name}</span>
+                  {med.assumed_enriched_data?.medicine_type && (
+                    <span className="text-slate-400 font-normal">· {med.assumed_enriched_data.medicine_type}</span>
+                  )}
                 </p>
               )}
             </div>
@@ -88,18 +105,36 @@ export const MedicineCard = ({ med, index }) => {
           </div>
 
           {/* Quick Schedule Pills */}
-          <div className="flex items-center gap-2.5 mt-3 flex-wrap">
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
             {/* Timing Code Pill */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200/80">
-              <Clock className="w-3 h-3 text-emerald-600" />
-              <span className="text-xs font-black text-emerald-900 font-mono tracking-wider">{timingCode}</span>
-              <span className="text-[11px] text-emerald-700 font-medium">({timingInfo.label})</span>
-            </div>
+            {timingCode ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200/80">
+                <Clock className="w-3 h-3 text-emerald-600" />
+                <span className="text-xs font-black text-emerald-900 font-mono tracking-wider">{timingCode}</span>
+                {timingInfo && (
+                  <span className="text-[11px] text-emerald-700 font-medium">({timingInfo.label})</span>
+                )}
+              </div>
+            ) : med.dosage_instruction ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 font-medium text-xs">
+                <Clock className="w-3 h-3 text-slate-500" />
+                <span>{med.dosage_instruction}</span>
+              </div>
+            ) : null}
 
             {/* Meal relation */}
-            <div className="text-xs font-semibold text-slate-600 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200">
-              {mealText}
-            </div>
+            {mealText && (
+              <div className="text-xs font-semibold text-slate-600 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200">
+                {mealText}
+              </div>
+            )}
+
+            {/* Interval frequency if unusual (e.g. 15 days) */}
+            {med.interval_days && med.interval_days > 1 && (
+              <div className="text-xs font-semibold text-amber-800 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200">
+                Once every {med.interval_days} days
+              </div>
+            )}
 
             {/* Duration */}
             {med.duration_days && (

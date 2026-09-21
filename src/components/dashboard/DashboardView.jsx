@@ -280,7 +280,13 @@ export const DashboardView = () => {
 
   // Handler for adding document to real vault
   const handleDocumentAdded = async (newDoc) => {
-    setDocuments(prev => [newDoc, ...prev]);
+    setDocuments(prev => {
+      const exists = prev.some(d => d.id === newDoc.id || (d.cloud_file_key && d.cloud_file_key === newDoc.cloud_file_key));
+      if (exists) {
+        return prev.map(d => (d.id === newDoc.id || (d.cloud_file_key && d.cloud_file_key === newDoc.cloud_file_key)) ? { ...d, ...newDoc } : d);
+      }
+      return [newDoc, ...prev];
+    });
 
     if (user?.id) {
       try {
@@ -295,6 +301,7 @@ export const DashboardView = () => {
           cloud_file_key: newDoc.cloud_file_key || null,
           local_file_path: newDoc.local_file_path || null,
           ai_analysis_status: newDoc.ai_status || 'pending',
+          ai_analysis_result: newDoc.ai_analysis_result || null,
         }]);
       } catch (err) {
         console.error('Error persisting document:', err);
@@ -370,6 +377,13 @@ export const DashboardView = () => {
             onAddMember={handleAddMember}
             onDocumentAdded={handleDocumentAdded}
             onViewDocument={(doc) => {
+              if (doc?.ai_analysis_result) {
+                setDocuments(prev => prev.map(d => 
+                  (d.id === doc.id || (d.cloud_file_key && d.cloud_file_key === doc.cloud_file_key))
+                    ? { ...d, ...doc }
+                    : d
+                ));
+              }
               setViewingDoc(doc);
               setIsAnalyzingDoc(true);
               setActiveTab('medical');
