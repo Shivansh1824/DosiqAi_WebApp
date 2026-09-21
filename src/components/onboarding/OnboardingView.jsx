@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   ArrowRight, ArrowLeft, CheckCircle2, Phone, User,
-  Loader2, Users, MessageCircle, LogOut,
+  Loader2, Users, MessageCircle, LogOut, Send,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { DosiqLogo } from '../common/DosiqLogo';
@@ -79,7 +79,7 @@ const Step1Form = ({ data, onChange, onNext }) => {
               onChange({ name: e.target.value });
               if (!touched) setTouched(true);
             }}
-            placeholder="e.g. Shivansh Rana"
+            placeholder="e.g. Alex Sharma"
             className={`w-full pl-10 pr-4 py-2.5 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 ${
               touched && isNameEmpty ? 'border-red-400 bg-red-50/20' : 'border-slate-200 bg-white'
             } focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 transition-colors duration-150`}
@@ -94,29 +94,47 @@ const Step1Form = ({ data, onChange, onNext }) => {
         )}
       </div>
 
-      {/* Mobile (Optional) */}
+      {/* Telegram Username (Optional) */}
       <div>
         <div className="flex items-center justify-between mb-1.5">
-          <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-            Mobile Number
+          <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+            <Send className="w-3.5 h-3.5 text-sky-500" />
+            Telegram Username
           </label>
           <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
             Optional
           </span>
         </div>
         <div className="relative">
-          <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500 pointer-events-none" />
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 pointer-events-none">
+            @
+          </span>
           <input
-            type="tel"
-            value={data.phone}
-            onChange={(e) => onChange({ phone: e.target.value })}
-            placeholder="+91 98765 43210"
-            className="w-full pl-10 pr-4 py-2.5 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 border-slate-200 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-100 bg-white transition-colors duration-150"
+            type="text"
+            value={data.telegram_username?.replace(/^@/, '') || ''}
+            onChange={(e) => onChange({ telegram_username: e.target.value.trim().replace(/^@/, '') })}
+            placeholder="your_handle"
+            className="w-full pl-8 pr-4 py-2.5 text-sm font-semibold text-slate-800 placeholder:text-slate-300 rounded-xl border-2 border-slate-200 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 bg-white transition-colors duration-150"
           />
         </div>
-        <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
-          Used for Telegram &amp; WhatsApp reminders · can connect anytime.
-        </p>
+
+        {/* Informative guide when empty or filled */}
+        {!data.telegram_username ? (
+          <div className="mt-2 p-2.5 rounded-xl bg-sky-50/70 border border-sky-200 text-[11px] text-sky-800 leading-relaxed flex items-start gap-2">
+            <span className="text-sm shrink-0">💡</span>
+            <div>
+              <p className="font-semibold text-sky-900">Don't have a Telegram handle handy?</p>
+              <p className="text-sky-700 mt-0.5">
+                You can skip this now and link Telegram anytime in <strong>CareLoop Settings</strong> on the dashboard. Simply open Telegram, search for <span className="font-bold text-sky-950 font-mono">@dosiq_care_bot</span>, and tap <strong>Start</strong>.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-[11px] text-emerald-600 mt-1 font-medium flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            Check-ins will dispatch to @{data.telegram_username.replace(/^@/, '')} via @dosiq_care_bot
+          </p>
+        )}
       </div>
 
       {/* Dose Times (Preset applied) */}
@@ -415,7 +433,8 @@ export const OnboardingView = () => {
   }, { scope: formPanelRef });
 
   const [primary, setPrimary] = useState({
-    name: derivedName,
+    name: derivedName || 'Alex Sharma',
+    telegram_username: '',
     phone: '',
     avatar: null,
     doseTime: { ...DEFAULT_DOSE },

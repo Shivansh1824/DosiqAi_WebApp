@@ -3,6 +3,26 @@ import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
 
+const DEMO_USER = {
+  id: 'demo-caregiver-judge-01',
+  email: 'judge.demo@dosiq.ai',
+  user_metadata: {
+    full_name: 'Alex Sharma',
+    name: 'Alex Sharma',
+  },
+};
+
+const DEMO_PRIMARY_PROFILE = {
+  id: 'demo-self-01',
+  user_id: 'demo-caregiver-judge-01',
+  name: 'Alex Sharma',
+  relationship: 'Self',
+  onboarding_completed: true,
+  morning_dose_time: '08:00:00',
+  afternoon_dose_time: '14:00:00',
+  night_dose_time: '20:00:00',
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
@@ -13,6 +33,11 @@ export const AuthProvider = ({ children }) => {
   // Auto-provision or fetch primary 'Self' profile in family_members
   const ensurePrimaryProfile = async (currentUser) => {
     if (!currentUser) return null;
+    if (currentUser.id === DEMO_USER.id) {
+      setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
+      setIsOnboarded(true);
+      return DEMO_PRIMARY_PROFILE;
+    }
     try {
       const { data: existingProfiles, error } = await supabase
         .from('family_members')
@@ -71,6 +96,16 @@ export const AuthProvider = ({ children }) => {
     // Check initial session
     const getInitialSession = async () => {
       try {
+        const isDemo = localStorage.getItem('dosiq_demo_mode') === 'true';
+        if (isDemo) {
+          setUser(DEMO_USER);
+          setSession({ user: DEMO_USER, access_token: 'demo-token' });
+          setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
+          setIsOnboarded(true);
+          setLoading(false);
+          return;
+        }
+
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
         if (error) console.error('Error fetching session:', error);
         
@@ -165,9 +200,41 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
+  // 1-Click Demo Login for Hackathon Judges & Evaluators (Bypasses OTP, email, and passwords)
+  const signInAsDemo = async ({ startOnboarding = false } = {}) => {
+    try {
+      localStorage.setItem('dosiq_demo_mode', 'true');
+      setUser(DEMO_USER);
+      setSession({ user: DEMO_USER, access_token: 'demo-token' });
+      setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
+      setIsOnboarded(!startOnboarding);
+      return { user: DEMO_USER, session: { user: DEMO_USER } };
+    } catch (err) {
+      console.error('Error signing in as demo:', err);
+    }
+  };
+
   // Complete Onboarding — writes primary profile + family members to Supabase
   const completeOnboarding = async ({ primary, familyMembers }) => {
     if (!user) throw new Error('Not authenticated');
+
+    // Demo Mode fast path
+    if (user.id === DEMO_USER.id) {
+      const demoSelf = {
+        id: 'demo-self-01',
+        user_id: user.id,
+        name: primary.name?.trim() || 'Alex Sharma',
+        relationship: 'Self',
+        telegram_username: primary.telegram_username?.trim() || null,
+        morning_dose_time: (primary.doseTime?.morning || '08:00') + ':00',
+        afternoon_dose_time: (primary.doseTime?.afternoon || '14:00') + ':00',
+        night_dose_time: (primary.doseTime?.night || '20:00') + ':00',
+        onboarding_completed: true,
+      };
+      setCurrentFamilyMember(demoSelf);
+      setIsOnboarded(true);
+      return;
+    }
 
     // 1. Upsert the Self row with onboarding data
     const selfRow = {
@@ -175,6 +242,7 @@ export const AuthProvider = ({ children }) => {
       name: primary.name.trim(),
       relationship: 'Self',
       phone_number: primary.phone?.trim() || null,
+      telegram_username: primary.telegram_username?.trim() || null,
       avatar_url: primary.avatar || null,
       morning_dose_time:   primary.doseTime.morning   + ':00',
       afternoon_dose_time: primary.doseTime.afternoon + ':00',
@@ -204,6 +272,7 @@ export const AuthProvider = ({ children }) => {
           gender: resolvedGender,
           date_of_birth: approxDob,
           phone_number: m.phone?.trim() || null,
+          telegram_username: m.telegram_username?.trim() || null,
           avatar_url: m.avatar || null,
           morning_dose_time:   m.doseTime.morning   + ':00',
           afternoon_dose_time: m.doseTime.afternoon + ':00',
@@ -220,7 +289,7 @@ export const AuthProvider = ({ children }) => {
       data: {
         full_name: primary.name.trim(),
         onboarding_completed: true,
-        phone_number: primary.phone?.trim() || null,
+        telegram_username: primary.telegram_username?.trim() || null,
         avatar_url: primary.avatar || null,
       },
     });
@@ -232,6 +301,7 @@ export const AuthProvider = ({ children }) => {
 
   // Sign Out
   const signOut = async () => {
+    localStorage.removeItem('dosiq_demo_mode');
     setUser(null);
     setSession(null);
     setCurrentFamilyMember(null);
@@ -248,6 +318,7 @@ export const AuthProvider = ({ children }) => {
     signInWithEmail,
     signUpWithEmail,
     signInWithGoogle,
+    signInAsDemo,
     verifyOtp,
     resendOtp,
     signOut,

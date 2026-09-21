@@ -14,3 +14,9 @@ progress-tracker.html
 # System files
 .DS_Store
 supabase/.temp/
+
+# Private Sample Files (Git-Ignored for Privacy)
+Sample Data/
+sample-data/
+public/sample-data/
+*.sample.*

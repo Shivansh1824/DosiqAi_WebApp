@@ -234,8 +234,8 @@ export const ClinicalVaultSection = ({ documents = [], onUpload, onDocumentAdded
     setExtractionDone(prev => ({ ...prev, [type]: true }));
 
     const isRx = type === 'rx';
-    const sampleFileName = isRx ? 'dr_mehta_prescription_cardiology.pdf' : 'metropolis_blood_lipid_panel.pdf';
-    const sampleJsonFileName = isRx ? 'Shivansh - Cardiac Follow-up Prescription - 21 Sep 2026' : 'Shivansh - Comprehensive Metabolic & Lipid Panel - 21 Sep 2026';
+    const sampleFileName = isRx ? 'Sample_Prescription_Cardiology.jpg' : '2019-08-18 Whole body Test 2.pdf';
+    const sampleJsonFileName = isRx ? 'Alex Sharma - Cardiac Follow-up Prescription - 21 Sep 2026' : 'Alex Sharma - Comprehensive Metabolic & Lipid Panel - 21 Sep 2026';
     const sampleDoctor = isRx ? 'Dr. R. Mehta, MD (Cardiology)' : 'Dr. S. K. Gupta, MD (Pathologist)';
     const sampleClinic = isRx ? 'Apollo Heart & Clinical Institute' : 'Metropolis Healthcare Labs';
     const sampleDiagnosis = isRx ? 'Essential Hypertension & Cardiac Care' : 'Complete Metabolic & Lipid Profile';

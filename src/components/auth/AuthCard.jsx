@@ -10,6 +10,8 @@ import {
   CheckCircle2,
   ShieldCheck,
   Loader2,
+  Zap,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { DosiqLogo } from '../common/DosiqLogo';
@@ -33,7 +35,7 @@ function levenshtein(a, b) {
 }
 
 export const AuthCard = () => {
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInAsDemo } = useAuth();
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -220,6 +222,38 @@ export const AuthCard = () => {
             </div>
           </div>
         )}
+
+        {/* ── ⚡ FAST-TRACK DEMO LOGIN (FOR HACKATHON JURY & EVALUATORS — NO OTP NEEDED) ── */}
+        <div className="mb-5 p-3.5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-teal-500/10 to-sky-500/10 border border-emerald-500/25 shadow-xs flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-800">
+              <Zap className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
+              Judge / Evaluator Fast-Track
+            </span>
+            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-300">
+              No OTP Needed
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => signInAsDemo()}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-xs font-black shadow-md shadow-slate-900/15 transition-all duration-150 group cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-12 transition-transform" />
+            <span>Launch Live Demo Dashboard</span>
+            <ArrowRight className="w-3.5 h-3.5 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+          <p className="text-[10px] text-slate-500 text-center leading-tight">
+            Instant evaluation access · explore clinical vault &amp; biomarker visualizer
+          </p>
+        </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 my-4">
+          <div className="flex-1 border-t border-slate-200" />
+          <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">or email sign in</span>
+          <div className="flex-1 border-t border-slate-200" />
+        </div>
 
         {/* ── Form: Email → (Name on sign-up) → Password → Submit ── */}
         <form onSubmit={handleSubmit} className="space-y-4">

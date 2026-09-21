@@ -132,7 +132,16 @@ export const processDocumentFilesForVault = async (userId, files = [], docType =
     finalFileName = single.name || `${docType.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.${ext}`;
 
     if (single.dataUrl) {
-      finalBlob = dataUrlToBlob(single.dataUrl, finalMime);
+      if (single.dataUrl.startsWith('data:')) {
+        finalBlob = dataUrlToBlob(single.dataUrl, finalMime);
+      } else {
+        try {
+          const resp = await fetch(single.dataUrl);
+          finalBlob = await resp.blob();
+        } catch (_) {
+          finalBlob = new Blob([], { type: finalMime });
+        }
+      }
     } else {
       finalBlob = new Blob([], { type: finalMime });
     }

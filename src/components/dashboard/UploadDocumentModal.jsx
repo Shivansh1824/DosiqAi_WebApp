@@ -207,19 +207,45 @@ export const UploadDocumentModal = ({
     window.open(blobUrl, '_blank');
   };
 
-  // Quick sample loader for fast testing
-  const handleSample = (type) => {
-    setFiles(prev => [
-      ...prev,
-      {
-        id: `sample_${Date.now()}`,
-        name: type === 'Prescription' ? 'sample_prescription_dr_mehta.pdf' : 'sample_blood_report_srl.pdf',
-        size: type === 'Prescription' ? 245000 : 380000,
-        type: 'application/pdf',
-        dataUrl: null,
-        capturedVia: 'sample_preset',
-      },
-    ]);
+  // Quick sample loader for fast testing (fetches real sample assets from /sample-data/)
+  const handleSample = async (type) => {
+    const isRx = type === 'Prescription';
+    const sampleUrl = isRx ? '/sample-data/sample_prescription.jpg' : '/sample-data/sample_lab_report.pdf';
+    const sampleName = isRx ? 'Sample_Prescription_Cardiology.jpg' : '2019-08-18 Whole body Test 2.pdf';
+    const sampleMime = isRx ? 'image/jpeg' : 'application/pdf';
+
+    try {
+      const response = await fetch(sampleUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFiles([
+          {
+            id: `sample_${Date.now()}`,
+            name: sampleName,
+            size: blob.size,
+            type: sampleMime,
+            dataUrl: reader.result,
+            capturedVia: 'sample_preset',
+          },
+        ]);
+      };
+      reader.readAsDataURL(blob);
+    } catch (err) {
+      console.error('Error fetching sample document:', err);
+      // Fallback
+      setFiles([
+        {
+          id: `sample_${Date.now()}`,
+          name: sampleName,
+          size: isRx ? 116000 : 510000,
+          type: sampleMime,
+          dataUrl: null,
+          capturedVia: 'sample_preset',
+        },
+      ]);
+    }
   };
 
   // Handler when photo is received from smartphone QR sync (supports multiple sequential snaps)
@@ -820,22 +846,32 @@ export const UploadDocumentModal = ({
                     </label>
                   )}
 
-                  {/* Judge / Evaluator Fast-Track — only shown when no files have been uploaded */}
+                  {/* Judge / Evaluator Fast-Track Sample Card */}
                   {files.length === 0 && (
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs">
-                      <div className="flex items-center gap-2 min-w-0 pr-2">
-                        <Zap className="w-4 h-4 text-amber-500 shrink-0" />
-                        <p className="text-[11px] text-slate-600 leading-snug">
-                          <strong className="text-amber-800 font-bold">Judge / Evaluator Fast-Track:</strong> No medical file on hand? Click to load our pre-configured sample {docType === 'Blood Test' ? 'lab report' : 'prescription'} to test clinical extraction instantly.
-                        </p>
+                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 border border-emerald-500/25 shadow-xs">
+                      <div className="flex items-center gap-2.5 min-w-0 pr-3">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0">
+                          <Zap className="w-4 h-4 text-emerald-700 fill-emerald-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                            <span>Judge / Evaluator Fast-Track</span>
+                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              Instant Test
+                            </span>
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                            No medical document on hand? Click to load our sample {docType === 'Blood Test' ? 'pathology lab report (CBC / Metabolic Panel)' : 'handwritten clinical prescription'} to test live AI decoding.
+                          </p>
+                        </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleSample(docType)}
-                        className="flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 active:scale-95 px-3 py-1.5 rounded-xl border border-amber-300 shadow-2xs transition-all shrink-0"
+                        className="flex items-center gap-1.5 text-xs font-black text-white bg-slate-900 hover:bg-slate-800 active:scale-95 px-3.5 py-2 rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
                       >
-                        <Zap className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Load Sample {docType === 'Blood Test' ? 'Lab' : 'Rx'}</span>
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Use Sample {docType === 'Blood Test' ? 'Lab Report' : 'Prescription'}</span>
                       </button>
                     </div>
                   )}
