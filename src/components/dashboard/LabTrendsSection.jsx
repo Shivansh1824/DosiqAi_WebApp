@@ -50,17 +50,53 @@ const getTrendInsight = (data) => {
 
 export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
   const containerRef = useRef(null);
-  const testNames = useMemo(() => Object.keys(biomarkers).filter(k => biomarkers[k].data?.length > 0), [biomarkers]);
-  const [activeTest, setActiveTest] = useState(testNames[0] || null);
 
-  // Sync active test when keys change (new doc uploaded)
+  // Intelligently sort biomarkers:
+  // 1. Tests with 2+ readings (actual comparative trends) come FIRST
+  // 2. Tests with abnormal values come next
+  // 3. Alphabetical order within each category
+  const allTestNames = useMemo(() => {
+    return Object.keys(biomarkers)
+      .filter(k => biomarkers[k].data?.length > 0)
+      .sort((a, b) => {
+        const countA = biomarkers[a].data.length;
+        const countB = biomarkers[b].data.length;
+        if (countA >= 2 && countB < 2) return -1;
+        if (countB >= 2 && countA < 2) return 1;
+        if (countB !== countA) return countB - countA;
+
+        const abA = biomarkers[a].data.some(d => d.is_abnormal) ? 1 : 0;
+        const abB = biomarkers[b].data.some(d => d.is_abnormal) ? 1 : 0;
+        if (abB !== abA) return abB - abA;
+
+        return a.localeCompare(b);
+      });
+  }, [biomarkers]);
+
+  const trendingTests = useMemo(() => allTestNames.filter(name => (biomarkers[name]?.data?.length || 0) >= 2), [allTestNames, biomarkers]);
+  const abnormalTests = useMemo(() => allTestNames.filter(name => biomarkers[name]?.data?.some(d => d.is_abnormal)), [allTestNames, biomarkers]);
+
+  // Filter mode: 'all' | 'trending' | 'abnormal'
+  const [filterMode, setFilterMode] = useState(trendingTests.length > 0 ? 'trending' : 'all');
+
+  const visibleTestNames = useMemo(() => {
+    if (filterMode === 'trending' && trendingTests.length > 0) return trendingTests;
+    if (filterMode === 'abnormal' && abnormalTests.length > 0) return abnormalTests;
+    return allTestNames;
+  }, [filterMode, trendingTests, abnormalTests, allTestNames]);
+
+  const [activeTest, setActiveTest] = useState(visibleTestNames[0] || allTestNames[0] || null);
+
+  // Sync active test when keys change (new doc uploaded or filter switched)
   React.useEffect(() => {
-    if (testNames.length > 0 && !testNames.includes(activeTest)) {
-      setActiveTest(testNames[0]);
+    if (visibleTestNames.length > 0 && !visibleTestNames.includes(activeTest)) {
+      setActiveTest(visibleTestNames[0]);
+    } else if (allTestNames.length > 0 && !allTestNames.includes(activeTest)) {
+      setActiveTest(allTestNames[0]);
     }
-  }, [testNames, activeTest]);
+  }, [visibleTestNames, allTestNames, activeTest]);
 
-  const hasData = testNames.length > 0;
+  const hasData = allTestNames.length > 0;
   const metric = activeTest ? biomarkers[activeTest] : null;
   const data = metric?.data || [];
   const unit = metric?.unit || '';
@@ -116,7 +152,7 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
             Biomarker Trend Visualizer
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            {documents.length} report{documents.length !== 1 ? 's' : ''} loaded · {testNames.length} biomarkers tracked · Dynamic trend comparison
+            {documents.length} report{documents.length !== 1 ? 's' : ''} loaded · {allTestNames.length} biomarkers tracked{trendingTests.length > 0 ? ` · ${trendingTests.length} tests with comparative trend lines` : ''}
           </p>
         </div>
         {totalAbnormalGlobal > 0 && (
@@ -140,12 +176,59 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
 
       {hasData && (
         <>
+          {/* Quick Filter Switcher */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {trendingTests.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilterMode('trending')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  filterMode === 'trending'
+                    ? 'bg-emerald-600 text-white shadow-2xs'
+                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/70'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Comparing Trends ({trendingTests.length})</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setFilterMode('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                filterMode === 'all'
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All Biomarkers ({allTestNames.length})
+            </button>
+
+            {abnormalTests.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilterMode('abnormal')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  filterMode === 'abnormal'
+                    ? 'bg-rose-600 text-white shadow-2xs'
+                    : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200/70'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Abnormal ({abnormalTests.length})</span>
+              </button>
+            )}
+          </div>
+
           {/* Biomarker selector tabs — scrollable */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-            {testNames.map(name => {
+            {visibleTestNames.map(name => {
               const d = biomarkers[name]?.data || [];
               const last = d[d.length - 1];
               const isActive = activeTest === name;
+              const hasTrend = d.length >= 2;
+
               return (
                 <button
                   key={name}
@@ -158,7 +241,14 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
                   }`}
                 >
                   {last?.is_abnormal && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />}
-                  <span className="truncate max-w-[120px]">{name}</span>
+                  <span className="truncate max-w-[130px]">{name}</span>
+                  {hasTrend && (
+                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {d.length} pts
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -192,10 +282,26 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
                 </div>
               )}
 
+              {data.length >= 2 && (
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                  <Activity className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>{data.length} Readings Across Reports</span>
+                </div>
+              )}
+
               {data.length === 1 && (
-                <span className="text-[10px] text-slate-400 font-medium px-2">
-                  Upload another report to see trend direction
-                </span>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 text-xs font-medium w-full mt-1">
+                  <Lightbulb className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    {documents.length >= 2 ? (
+                      <>
+                        <strong>Single Report Reading:</strong> <em>{activeTest}</em> was only included in 1 of your {documents.length} uploaded reports ({latestPoint?.reportTitle || 'Report'}). Biomarkers with historical data (like Total Bilirubin, Albumin, etc.) show full trend comparison lines.
+                      </>
+                    ) : (
+                      <>Upload a 2nd blood test report to unlock historical trend comparisons and direction indicators.</>
+                    )}
+                  </span>
+                </div>
               )}
             </div>
           )}

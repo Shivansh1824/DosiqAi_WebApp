@@ -9,6 +9,7 @@ import { FamilySection }  from './FamilySection';
 import { Loader2 }        from 'lucide-react';
 import { TELEGRAM_BOT_URL } from '../../lib/telegramConfig';
 import { CareLoopHistorySection } from './CareLoopHistorySection';
+import { normalizeBiomarkerName, resolveClinicalReportDate } from '../../lib/biomarkerUtils';
 
 const formatProfile = (m, memberVitals = {}) => {
   const birthYear = m.date_of_birth ? new Date(m.date_of_birth).getFullYear() : null;
@@ -125,7 +126,7 @@ export const DashboardView = () => {
             doctor: doctorFromAi || (d.issued_by && !d.issued_by.includes('Consulting') ? d.issued_by : (isRx ? 'Dr. R. Mehta, MD (Cardiology)' : 'Metropolis Healthcare Labs')),
             clinic: hospitalFromAi || 'Clinical Vault',
             hospital: hospitalFromAi,
-            date: d.visit_date || (d.created_at ? d.created_at.split('T')[0] : '2026-09-20'),
+            date: ai?.report_data?.report_date || ai?.report_data?.collection_date || ai?.common_data?.visit_date || d.visit_date || (d.created_at ? d.created_at.split('T')[0] : '2026-09-20'),
             diagnosis: diagnosisFromAi || (d.diagnosis && !d.diagnosis.includes('Protocol') ? d.diagnosis : (isRx ? 'Essential Hypertension & Cardiac Care' : 'Complete Metabolic & Lipid Panel')),
             verified: d.ai_analysis_status === 'completed',
             badge: d.type === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded',
@@ -512,27 +513,46 @@ export const DashboardView = () => {
     const biomarkers = {};
     const bloodTestDocs = docs
       .filter(d => d.type === 'Blood Test' && d.ai_analysis_result?.report_data?.grouped_metrics)
-      .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+      .sort((a, b) => {
+        const dateA = resolveClinicalReportDate(a).isoDate;
+        const dateB = resolveClinicalReportDate(b).isoDate;
+        return new Date(dateA || 0) - new Date(dateB || 0);
+      });
 
-    bloodTestDocs.forEach(doc => {
+    bloodTestDocs.forEach((doc, docIdx) => {
       const panels = doc.ai_analysis_result.report_data.grouped_metrics;
-      const dateLabel = doc.date
-        ? new Date(doc.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-        : 'Unknown';
+      const { displayDate } = resolveClinicalReportDate(doc);
+
+      // Disambiguate if multiple reports share the exact same display date
+      const hasDuplicateDate = bloodTestDocs.some((other, oi) => oi !== docIdx && resolveClinicalReportDate(other).displayDate === displayDate);
+      const shortLab = doc.clinic ? doc.clinic.split(' ')[0] : (doc.doctor ? doc.doctor.split(' ')[0] : '');
+      const dateLabel = hasDuplicateDate
+        ? `${displayDate} (${shortLab || `Rep ${docIdx + 1}`})`
+        : displayDate;
 
       panels.forEach(panel => {
         panel.metrics.forEach(metric => {
-          const key = metric.test_name;
+          const rawName = metric.test_name;
+          const canonical = normalizeBiomarkerName(rawName);
+          const key = canonical || rawName;
+
           if (!biomarkers[key]) {
-            biomarkers[key] = { unit: metric.unit, label: metric.test_name, data: [] };
+            biomarkers[key] = {
+              unit: metric.unit,
+              label: key,
+              rawName,
+              data: []
+            };
           }
           const numVal = metric.numeric_value ?? parseFloat(metric.value);
           if (!isNaN(numVal)) {
             biomarkers[key].data.push({
               month: dateLabel,
               value: numVal,
-              unit: metric.unit,
+              unit: metric.unit || biomarkers[key].unit,
               is_abnormal: metric.is_abnormal,
+              reportTitle: doc.file_name || doc.ai_file_name || 'Lab Report',
+              lab: doc.clinic || doc.doctor || 'Pathology Lab',
             });
           }
         });

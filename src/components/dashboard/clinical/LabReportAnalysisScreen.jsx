@@ -10,6 +10,7 @@ import { useGSAP } from '@gsap/react';
 import { BiomarkerPanelCard, MetricRow } from './BiomarkerPanelCard';
 import { TrendChart } from './LabTrendChart';
 import { DocumentPreviewModal } from './DocumentPreviewModal';
+import { normalizeBiomarkerName, resolveClinicalReportDate } from '../../../lib/biomarkerUtils';
 
 gsap.registerPlugin(useGSAP);
 
@@ -33,22 +34,38 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
   const totalAbnormal = reportData?.total_abnormalities ?? 0;
   const totalTests = panels.reduce((acc, p) => acc + p.metrics.length, 0);
 
-  // Build cross-report trend data from allReportDocs (sorted by date)
+  // Build cross-report trend data from allReportDocs (sorted by genuine clinical date)
   const trendMap = {};
   const sortedDocs = [...allReportDocs]
     .filter(d => d.ai_analysis_result?.report_data?.grouped_metrics)
-    .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+    .sort((a, b) => {
+      const dateA = resolveClinicalReportDate(a).isoDate;
+      const dateB = resolveClinicalReportDate(b).isoDate;
+      return new Date(dateA || 0) - new Date(dateB || 0);
+    });
 
-  sortedDocs.forEach(d => {
+  sortedDocs.forEach((d, docIdx) => {
     const rd = d.ai_analysis_result?.report_data;
-    const dateLabel = d.date ? new Date(d.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '?';
+    const { displayDate } = resolveClinicalReportDate(d);
+    const hasDuplicateDate = sortedDocs.some((other, oi) => oi !== docIdx && resolveClinicalReportDate(other).displayDate === displayDate);
+    const shortLab = d.clinic ? d.clinic.split(' ')[0] : (d.doctor ? d.doctor.split(' ')[0] : '');
+    const dateLabel = hasDuplicateDate ? `${displayDate} (${shortLab || `Rep ${docIdx + 1}`})` : displayDate;
+
     (rd?.grouped_metrics || []).forEach(panel => {
       panel.metrics.forEach(metric => {
-        const key = metric.test_name;
+        const rawName = metric.test_name;
+        const key = normalizeBiomarkerName(rawName) || rawName;
+
         if (!trendMap[key]) trendMap[key] = { unit: metric.unit, data: [] };
         const numVal = metric.numeric_value ?? parseFloat(metric.value);
         if (!isNaN(numVal)) {
-          trendMap[key].data.push({ date: dateLabel, value: numVal, unit: metric.unit, is_abnormal: metric.is_abnormal });
+          trendMap[key].data.push({
+            date: dateLabel,
+            value: numVal,
+            unit: metric.unit || trendMap[key].unit,
+            is_abnormal: metric.is_abnormal,
+            reportTitle: d.file_name || d.ai_file_name || 'Lab Report'
+          });
         }
       });
     });
