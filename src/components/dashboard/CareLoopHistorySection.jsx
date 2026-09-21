@@ -1,10 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   Send, CheckCircle2, Clock, AlertTriangle, Calendar,
-  Zap, ExternalLink, Filter, Flame, RefreshCw, XCircle,
-  HelpCircle, ChevronRight, Check
+  Zap, ExternalLink, Flame, RefreshCw, HelpCircle
 } from 'lucide-react';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import { TELEGRAM_BOT_USERNAME, TELEGRAM_BOT_URL } from '../../lib/telegramConfig';
+import { CareLoopKpiGrid } from './CareLoopKpiGrid';
+
+gsap.registerPlugin(useGSAP);
 
 // Helper: Format date string to display format
 const formatDisplayDate = (dateStr) => {
@@ -35,9 +39,10 @@ export const CareLoopHistorySection = ({
   const [filterType, setFilterType] = useState('all'); // 'all' | 'confirmed' | 'skipped'
   const [showAllHistory, setShowAllHistory] = useState(false);
 
+  const mainContainerRef = useRef(null);
   const activeName = activeProfile?.name || 'Shivansh';
 
-  // Generate 7-day strip around today
+  // 7-day strip around today
   const dayStrip = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
@@ -60,31 +65,25 @@ export const CareLoopHistorySection = ({
   } = useMemo(() => {
     const isToday = selectedDate === todayStr;
     const isPast = selectedDate < todayStr;
-    const isFuture = selectedDate > todayStr;
 
-    // Slots accumulator
     const morningMeds = [];
     const afternoonMeds = [];
     const nightMeds = [];
     const notScheduled = [];
     const sosMeds = [];
 
-    // Filter events for selected date
     const currentDayEvents = events.filter(e => e.date === selectedDate);
 
-    // Analyze each medication
     medications.forEach(med => {
       const startDate = med.start_date || '2026-09-21';
       const durationDays = parseInt(med.duration_days, 10) || 60;
       const intervalDays = med.interval_days !== undefined ? Number(med.interval_days) : 1;
       
-      // Calculate end date
       const startD = new Date(startDate + 'T00:00:00');
       const endD = new Date(startD);
       endD.setDate(endD.getDate() + durationDays);
       const endDate = endD.toISOString().split('T')[0];
 
-      // Check SOS
       const isSos = intervalDays === 0 || 
                     String(med.dosage_instruction || '').toLowerCase().includes('sos') ||
                     String(med.slot || '').toLowerCase().includes('sos');
@@ -97,7 +96,6 @@ export const CareLoopHistorySection = ({
         return;
       }
 
-      // Check if within active date window
       if (selectedDate < startDate) {
         notScheduled.push({
           ...med,
@@ -116,7 +114,6 @@ export const CareLoopHistorySection = ({
         return;
       }
 
-      // Check intermittent interval (e.g. once every 15 days)
       if (intervalDays > 1) {
         const diffDays = Math.round((new Date(selectedDate + 'T00:00:00') - startD) / (1000 * 60 * 60 * 24));
         const isDue = diffDays >= 0 && diffDays % intervalDays === 0;
@@ -133,7 +130,7 @@ export const CareLoopHistorySection = ({
         }
       }
 
-      // ─── Scheduled on this day! Determine adherence status ─────────────────
+      // Adherence resolution
       const medNameLower = med.name.toLowerCase();
       const ev = currentDayEvents.find(e => 
         (e.medication && e.medication.toLowerCase().includes(medNameLower)) ||
@@ -193,7 +190,6 @@ export const CareLoopHistorySection = ({
         event: ev || null,
       };
 
-      // Assign to slots based on timing
       const timingStr = String(med.timing_dosage || med.slot || '').toLowerCase();
       const isMorning = timingStr.startsWith('1') || timingStr.includes('morning') || timingStr.includes('08:00');
       const isAfternoon = timingStr.includes('-1-') || timingStr.includes('afternoon') || timingStr.includes('14:00');
@@ -204,7 +200,6 @@ export const CareLoopHistorySection = ({
       if (isNight || (!isMorning && !isAfternoon)) nightMeds.push(scheduledItem);
     });
 
-    // Compute stats
     const totalScheduled = morningMeds.length + afternoonMeds.length + nightMeds.length;
     const allScheduledMeds = [...morningMeds, ...afternoonMeds, ...nightMeds];
     const takenCount = allScheduledMeds.filter(m => m.doseStatus === 'taken').length;
@@ -228,6 +223,52 @@ export const CareLoopHistorySection = ({
       dayEvents: currentDayEvents,
     };
   }, [selectedDate, medications, events, todayStr]);
+
+  // ─── GSAP Animations ────────────────────────────────────────────────────────
+  useGSAP(() => {
+    if (!mainContainerRef.current) return;
+
+    // Staggered entrance for dose slot cards
+    gsap.fromTo(
+      '.slot-col-card',
+      { y: 16, opacity: 0 },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 0.35,
+        stagger: 0.08,
+        ease: 'power2.out',
+        overwrite: 'auto',
+      }
+    );
+  }, { dependencies: [selectedDate], scope: mainContainerRef });
+
+  // GSAP Button / Card Hover Helpers
+  const onDayHover = (e) => {
+    gsap.to(e.currentTarget, { y: -3, scale: 1.05, duration: 0.2, ease: 'power2.out' });
+  };
+  const onDayLeave = (e) => {
+    gsap.to(e.currentTarget, { y: 0, scale: 1, duration: 0.2, ease: 'power2.out' });
+  };
+
+  const onSlotCardHover = (e) => {
+    gsap.to(e.currentTarget, {
+      y: -3,
+      scale: 1.01,
+      duration: 0.22,
+      ease: 'power2.out',
+      boxShadow: '0 8px 24px -4px rgba(15, 23, 42, 0.08)',
+    });
+  };
+  const onSlotCardLeave = (e) => {
+    gsap.to(e.currentTarget, {
+      y: 0,
+      scale: 1,
+      duration: 0.22,
+      ease: 'power2.out',
+      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03)',
+    });
+  };
 
   // Dispatch Live Test Check-in to Telegram
   const handleDispatchTelegram = async () => {
@@ -270,7 +311,7 @@ export const CareLoopHistorySection = ({
   });
 
   return (
-    <div className="flex flex-col gap-6 max-w-6xl mx-auto w-full pb-20 animate-in fade-in duration-300">
+    <div ref={mainContainerRef} className="flex flex-col gap-6 max-w-6xl mx-auto w-full pb-20 animate-in fade-in duration-300">
       {/* ── 1. Top Header ── */}
       <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
@@ -342,62 +383,12 @@ export const CareLoopHistorySection = ({
         </div>
       )}
 
-      {/* ── 2. Adherence Analytics KPI Cards (Calculated for selectedDate) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-sm flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Date Adherence</span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-              dayStats.rate !== null && dayStats.rate >= 80
-                ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                : dayStats.rate !== null
-                ? 'text-amber-700 bg-amber-50 border-amber-200'
-                : 'text-slate-500 bg-slate-100 border-slate-200'
-            }`}>
-              {dayStats.rate !== null ? (dayStats.rate >= 80 ? 'High' : 'Partial') : 'No Doses'}
-            </span>
-          </div>
-          <span className="text-2xl font-black text-slate-900">
-            {dayStats.rate !== null ? `${dayStats.rate}%` : '—'}
-          </span>
-          <span className="text-[11px] text-slate-500 font-medium">
-            {dayStats.totalScheduled > 0
-              ? `${dayStats.takenCount} of ${dayStats.totalScheduled} doses taken`
-              : 'No scheduled doses on this date'}
-          </span>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-sm flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Doses Taken</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          </div>
-          <span className="text-2xl font-black text-emerald-600">{dayStats.takenCount}</span>
-          <span className="text-[11px] text-slate-500 font-medium">Confirmed via Telegram</span>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-sm flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Streak</span>
-            <Flame className="w-4 h-4 text-amber-500" />
-          </div>
-          <span className="text-2xl font-black text-amber-600">4 Days 🔥</span>
-          <span className="text-[11px] text-slate-500 font-medium">Consecutive adherence</span>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-sm flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Response Latency</span>
-            <Clock className="w-4 h-4 text-sky-600" />
-          </div>
-          <span className="text-2xl font-black text-sky-600">2s</span>
-          <span className="text-[11px] text-slate-500 font-medium">1-tap Telegram confirmation</span>
-        </div>
-      </div>
+      {/* ── 2. Improvised GSAP KPI Grid ── */}
+      <CareLoopKpiGrid dayStats={dayStats} selectedDate={selectedDate} />
 
       {/* ── 3. Date-Wise Schedule & Adherence Timeline ── */}
       <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm flex flex-col gap-6">
-        {/* Date Selector Strip Header */}
+        {/* Date Selector Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div>
             <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
@@ -414,12 +405,12 @@ export const CareLoopHistorySection = ({
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer"
             />
           </div>
         </div>
 
-        {/* 7-Day Quick Strip */}
+        {/* 7-Day Quick Strip with GSAP Hover */}
         <div className="grid grid-cols-7 gap-2 sm:gap-3">
           {dayStrip.map(({ dateStr, dayLabel, dayNum, isToday }) => {
             const isSelected = selectedDate === dateStr;
@@ -429,10 +420,12 @@ export const CareLoopHistorySection = ({
               <button
                 key={dateStr}
                 type="button"
+                onMouseEnter={onDayHover}
+                onMouseLeave={onDayLeave}
                 onClick={() => setSelectedDate(dateStr)}
-                className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl border transition-all duration-150 relative ${
+                className={`flex flex-col items-center justify-center py-3 px-1 rounded-2xl border transition-colors duration-150 relative ${
                   isSelected
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20 scale-[1.02]'
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
                     : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/70'
                 }`}
               >
@@ -463,7 +456,7 @@ export const CareLoopHistorySection = ({
             </span>
           </div>
 
-          {/* If no medicines were scheduled on this date at all */}
+          {/* Empty state when no doses scheduled */}
           {dayStats.totalScheduled === 0 && (
             <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 text-center flex flex-col items-center gap-2">
               <Calendar className="w-8 h-8 text-slate-400" />
@@ -491,7 +484,7 @@ export const CareLoopHistorySection = ({
           {dayStats.totalScheduled > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Morning Slot */}
-              <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/70 flex flex-col gap-3">
+              <div className="slot-col-card bg-slate-50/80 rounded-2xl p-4 border border-slate-200/70 flex flex-col gap-3">
                 <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">☀️</span>
@@ -503,7 +496,12 @@ export const CareLoopHistorySection = ({
                   <p className="text-xs text-slate-400 italic py-3 text-center">No medications scheduled for morning</p>
                 ) : (
                   scheduledSlots.morning.map(med => (
-                    <div key={med.id} className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-col gap-1.5">
+                    <div
+                      key={med.id}
+                      onMouseEnter={onSlotCardHover}
+                      onMouseLeave={onSlotCardLeave}
+                      className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-col gap-1.5 transition-colors cursor-default"
+                    >
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-xs font-black text-slate-900">{med.name}</span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${med.badgeStyle}`}>
@@ -518,7 +516,7 @@ export const CareLoopHistorySection = ({
               </div>
 
               {/* Afternoon Slot */}
-              <div className="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/70 flex flex-col gap-3">
+              <div className="slot-col-card bg-slate-50/80 rounded-2xl p-4 border border-slate-200/70 flex flex-col gap-3">
                 <div className="flex items-center justify-between border-b border-slate-200/60 pb-2.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🌤️</span>
@@ -530,7 +528,12 @@ export const CareLoopHistorySection = ({
                   <p className="text-xs text-slate-400 italic py-3 text-center">No medications scheduled for afternoon</p>
                 ) : (
                   scheduledSlots.afternoon.map(med => (
-                    <div key={med.id} className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-col gap-1.5">
+                    <div
+                      key={med.id}
+                      onMouseEnter={onSlotCardHover}
+                      onMouseLeave={onSlotCardLeave}
+                      className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-col gap-1.5 transition-colors cursor-default"
+                    >
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-xs font-black text-slate-900">{med.name}</span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${med.badgeStyle}`}>
@@ -545,7 +548,7 @@ export const CareLoopHistorySection = ({
               </div>
 
               {/* Night Slot */}
-              <div className="bg-emerald-50/40 rounded-2xl p-4 border border-emerald-200/70 flex flex-col gap-3">
+              <div className="slot-col-card bg-emerald-50/40 rounded-2xl p-4 border border-emerald-200/70 flex flex-col gap-3">
                 <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2.5">
                   <div className="flex items-center gap-2">
                     <span className="text-base">🌙</span>
@@ -557,7 +560,12 @@ export const CareLoopHistorySection = ({
                   <p className="text-xs text-slate-400 italic py-3 text-center">No medications scheduled for night</p>
                 ) : (
                   scheduledSlots.night.map(med => (
-                    <div key={med.id} className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-col gap-1.5">
+                    <div
+                      key={med.id}
+                      onMouseEnter={onSlotCardHover}
+                      onMouseLeave={onSlotCardLeave}
+                      className="bg-white rounded-xl p-3 border border-slate-200 shadow-2xs flex flex-col gap-1.5 transition-colors cursor-default"
+                    >
                       <div className="flex items-center justify-between gap-1">
                         <span className="text-xs font-black text-slate-900">{med.name}</span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${med.badgeStyle}`}>
@@ -588,7 +596,6 @@ export const CareLoopHistorySection = ({
               </span>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Intermittent / Not started / Completed */}
                 {notScheduledList.map(med => (
                   <div key={med.id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-1">
                     <div className="flex items-center justify-between">
@@ -601,7 +608,6 @@ export const CareLoopHistorySection = ({
                   </div>
                 ))}
 
-                {/* SOS Medications */}
                 {sosMedications.map(med => (
                   <div key={med.id} className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/70 flex flex-col gap-1">
                     <div className="flex items-center justify-between">
@@ -637,7 +643,6 @@ export const CareLoopHistorySection = ({
             </p>
           </div>
 
-          {/* Filter & Toggle Pill */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
@@ -673,7 +678,6 @@ export const CareLoopHistorySection = ({
           </div>
         </div>
 
-        {/* Empty state if no events for selected date */}
         {filteredEvents.length === 0 ? (
           <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center flex flex-col items-center gap-2">
             <Clock className="w-7 h-7 text-slate-300" />
@@ -694,7 +698,9 @@ export const CareLoopHistorySection = ({
               return (
                 <div
                   key={ev.id}
-                  className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-white hover:border-emerald-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  onMouseEnter={onSlotCardHover}
+                  onMouseLeave={onSlotCardLeave}
+                  className="p-4 rounded-2xl border border-slate-200/80 bg-slate-50/50 hover:bg-white hover:border-emerald-300 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-default"
                 >
                   <div className="flex items-start gap-3.5">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${

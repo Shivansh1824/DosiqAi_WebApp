@@ -230,6 +230,40 @@ export const SidebarLayout = ({
     ? 'ALL'
     : (activeProfile.initials || activeName[0] || 'P');
 
+  const handleTabEnter = (e) => {
+    gsap.to(e.currentTarget, {
+      x: 4,
+      duration: 0.22,
+      ease: 'power2.out',
+    });
+    const iconBox = e.currentTarget.querySelector('.tab-icon-box');
+    if (iconBox) {
+      gsap.to(iconBox, {
+        scale: 1.14,
+        rotation: -4,
+        duration: 0.22,
+        ease: 'back.out(2)',
+      });
+    }
+  };
+
+  const handleTabLeave = (e) => {
+    gsap.to(e.currentTarget, {
+      x: 0,
+      duration: 0.2,
+      ease: 'power2.out',
+    });
+    const iconBox = e.currentTarget.querySelector('.tab-icon-box');
+    if (iconBox) {
+      gsap.to(iconBox, {
+        scale: 1,
+        rotation: 0,
+        duration: 0.2,
+        ease: 'power2.out',
+      });
+    }
+  };
+
   return (
     <div
       className="min-h-screen flex text-slate-900 selection:bg-emerald-500/20 selection:text-emerald-900 font-sans relative"
@@ -459,6 +493,8 @@ export const SidebarLayout = ({
               <button
                 key={id}
                 type="button"
+                onMouseEnter={handleTabEnter}
+                onMouseLeave={handleTabLeave}
                 onClick={() => { onTabChange(id); closeMenu(); }}
                 className={`group flex items-center gap-3 rounded-2xl font-bold text-sm transition-all duration-200 w-full text-left relative overflow-hidden ${
                   isEffectivelyExpanded ? 'px-3.5 py-3' : 'px-0 py-3 justify-center'
@@ -473,7 +509,7 @@ export const SidebarLayout = ({
                 {isActive && (
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-emerald-300" />
                 )}
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 ${
+                <div className={`tab-icon-box w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200 ${
                   isActive ? 'bg-white/20' : 'bg-white/[0.06] group-hover:bg-white/[0.12]'
                 }`}>
                   <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-emerald-200/60 group-hover:text-emerald-200'}`} />
