@@ -11,65 +11,160 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Initialize Gemini SDK with dedicated Report API Key (fallback to Common)
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY_REPORT || process.env.GEMINI_API_KEY_COMMON 
-});
+// ═══════════════════════════════════════════════════════════════════════════════
+// A++ GRADE: Lab Report Extraction Prompt (Bulletproof v11.0 — Dosiq AI Edition)
+// Adapted from dosiqAi prompt_report.md + enhanced with severity, clinical_narrative
+// ═══════════════════════════════════════════════════════════════════════════════
 
-const REPORT_EXTRACTION_PROMPT = `You are an elite, board-certified clinical laboratory pathologist and medical document AI.
-Your task is to analyze the provided medical laboratory diagnostic report (blood test, lipid panel, CBC, metabolic panel, urine test, pathology report) and extract all biological biomarkers, values, and reference ranges into strict, structured JSON.
+const REPORT_EXTRACTION_PROMPT = `You are an elite, board-certified clinical laboratory pathologist and AI diagnostics engine specialized in decoding Indian and international lab reports with 100% precision.
+
+Your task is to analyze the provided medical laboratory diagnostic report (blood test, lipid panel, CBC, metabolic panel, urine test, thyroid, pathology) and extract ALL biomarkers, values, and reference ranges into strict, structured JSON.
 
 ═══════════════════════════════════════════════════════════════════════════════
-SECTION A: EXTRACTION & ABNORMALITY DETECTION RULES
+STEP 1: DOCUMENT CLASSIFICATION
 ═══════════════════════════════════════════════════════════════════════════════
 
-1. PATIENT & LAB METADATA:
-   - Extract patient name (remove any salutations like Mr., Mrs., Master, Smt., Shri).
-   - Extract age and gender.
-   - Extract lab_name (e.g. "Wellness Pathcare Labs", "Metropolis Healthcare", "Dr Lal PathLabs", "SRL Diagnostics").
-   - Extract report_date and visit_date in YYYY-MM-DD format (if ambiguous assume DD/MM/YYYY).
+Carefully examine the document and classify it:
 
-2. BIOMARKER METRICS EXTRACTION (GROUPED BY PANEL):
-   Organize all extracted tests into logical clinical categories:
-   - "Lipid Profile" (Total Cholesterol, Triglycerides, HDL, LDL, VLDL)
-   - "Complete Blood Count / Haematology" (Hemoglobin, RBC, WBC, Platelets, MCV, MCH, ESR)
-   - "Liver Function Test" (SGOT/AST, SGPT/ALT, Bilirubin, Alkaline Phosphatase, Total Protein)
-   - "Kidney / Renal Function" (Serum Creatinine, Blood Urea Nitrogen, Uric Acid, eGFR)
-   - "Thyroid Profile" (TSH, Total T3, Total T4, Free T3, Free T4)
-   - "Diabetes / Glycemic Profile" (Fasting Blood Sugar, Post-Prandial Blood Sugar, HbA1c, Average Blood Glucose)
-   - "Vitamins & Minerals" (Vitamin D 25-OH, Vitamin B12, Calcium, Ferritin, Iron)
-   - "Urinalysis" (Urine Routine & Microscopic parameters)
+LAB REPORT (medical_report) Indicators:
+- Tabular data with columns: Test Name, Result, Unit, Reference Range, Method
+- Numeric test values with units (e.g., "14.0 g/dL", "218 mg/dL")
+- Abnormal flags or markers (HIGH/LOW/NORMAL, asterisks *)
+- Multiple test parameters listed with actual values
+- Lab name, accreditation, NABL logo
+- Test collection / report dates
+- Categories: Haematology, Biochemistry, Urine Analysis, Lipid Profile, Thyroid
 
-3. FOR EACH INDIVIDUAL TEST METRIC:
-   - test_name: Standardized medical test name.
-   - value: The measured test result (numeric or text, e.g. 34.5, 140, "Negative").
-   - unit: Measurement unit (e.g. "mg/dL", "ng/mL", "g/dL", "%", "uIU/mL", "mm/hr", "cells/cumm").
-   - reference_range: The biological reference interval printed on the report (e.g. "30 - 100", "< 200", "70 - 100", "0.7 - 1.2").
-   - is_abnormal: Boolean (true if value falls outside biological reference range, false if normal).
-   - method: Testing methodology if listed (e.g. "ECLIA", "HPLC", "Hexokinase", "Calculated") or null.
+INVALID Indicators:
+- Blurry / unreadable text that prevents value extraction
+- Non-medical content (receipts, prescriptions, plain text)
+- Incomplete / torn document with less than 2 readable test parameters
 
-4. ABNORMALITY COUNT & SUMMARY:
-   - total_abnormalities: Exact count of all metrics where is_abnormal = true.
-   - summary: A clear, patient-friendly clinical summary (2-4 sentences):
-     - Sentence 1: "[Patient Name]'s lab report from [Lab Name] on [Date] evaluated [Panels Tested]."
-     - Sentence 2: Detail all abnormal parameters with their values and reference ranges (e.g. "Vitamin D is deficient at 12 ng/mL (reference: 30-100). Total Cholesterol is elevated at 220 mg/dL (reference: <200).").
-     - Sentence 3: State normal parameters and total count of abnormalities (e.g. "Liver and kidney parameters are within normal limits. Total [X] abnormalities detected across all parameters tested.").
+═══════════════════════════════════════════════════════════════════════════════
+STEP 2: BIOMARKER EXTRACTION — BULLETPROOF v11.0
+═══════════════════════════════════════════════════════════════════════════════
+
+### RULE 1 — COMPLETE EXTRACTION:
+- Extract EVERY test parameter from the report without skipping any
+- Capture: test_name, value (raw), numeric_value (parsed float), unit, reference_range, method
+- Preserve exact values and ranges exactly as written
+- Group tests by their clinical panel categories
+
+### RULE 2 — SEVERITY CLASSIFICATION per metric:
+For each test, assign a "severity" level:
+- "normal"      → value is within reference range
+- "borderline"  → value is 1-20% outside reference range
+- "high"        → value is >20% above upper bound (or clinically significant high)
+- "low"         → value is >20% below lower bound (or clinically significant low)
+- "critical"    → value is dangerously far outside range (requires urgent attention)
+
+### RULE 3 — ABNORMALITY DETECTION (⚠️ ULTRA-STRICT — 100% ACCURACY REQUIRED):
+
+PRE-PROCESSING: For EVERY test, identify the range type then apply the rule:
+
+TYPE 1: SIMPLE NUMERIC RANGE (e.g., "40-60", "136-145", "3.5-7.2")
+- Parse: lower_bound and upper_bound
+- Rule: IF value < lower_bound OR value > upper_bound THEN is_abnormal = true
+- NO tolerance — even 0.1 unit difference counts
+- Examples:
+  * Sodium: 135 vs "136-145" → 135 < 136 → is_abnormal = true ✓
+  * HDL: 32 vs "40-60" → 32 < 40 → is_abnormal = true ✓
+  * Uric Acid: 10.3 vs "3.5-7.2" → 10.3 > 7.2 → is_abnormal = true ✓
+
+TYPE 2: INEQUALITY RANGE (e.g., "<=10", "<100", "<200", ">5")
+- "<X" means value >= X is abnormal
+- "<=X" means value > X is abnormal
+- ">X" means value <= X is abnormal
+- Examples:
+  * ESR: 13 vs "<=10" → 13 > 10 → is_abnormal = true ✓
+  * Cholesterol: 218 vs "<200" → 218 >= 200 → is_abnormal = true ✓
+
+TYPE 3: MULTI-CATEGORY RANGE (e.g., "Desirable <100, High 160-189")
+- ONLY these keywords indicate NORMAL: "Desirable", "Normal", "Optimal", "Acceptable"
+- ANY other category is ABNORMAL: "High", "Low", "Borderline", "Elevated", "Decreased", "Very High", "Very Low"
+- Examples:
+  * LDL: 166 falls in "High: 160-189" → is_abnormal = true ✓
+
+TYPE 4: EXPLICIT MARKERS (report shows HIGH/LOW/CRITICAL/H/L/asterisk *)
+- is_abnormal = true ✓
+
+TYPE 5: TEXT/QUALITATIVE VALUES (e.g., "NEGATIVE", "POSITIVE")
+- Compare actual value with reference value. If mismatch → is_abnormal = true
+- Example: Urine Protein "POSITIVE" vs reference "Negative" → is_abnormal = true ✓
+
+⚠️ CRITICAL: DO NOT SKIP THE LAST TEST IN EACH CATEGORY — many calculated tests (LDL, eGFR) appear last!
+
+### RULE 4 — COUNTING ALGORITHM (MANDATORY — MATHEMATICAL, NOT INTERPRETIVE):
+Step 1: Initialize counter = 0
+Step 2: Loop ALL categories → ALL tests in each category
+  → If test.is_abnormal == true → counter = counter + 1
+Step 3: Set total_abnormalities = counter
+Step 4: Verify you looped through EVERY category including the last test in each
+
+### RULE 5 — PATIENT & LAB METADATA:
+- Patient name: Remove ALL salutations (Mr., Mrs., Ms., Master, Baby, Smt., Shri, Dr.)
+- Dates: Assume DD/MM/YYYY input → output YYYY-MM-DD (ISO 8601)
+- lab_name: Full lab name as printed (e.g., "Dr Lal PathLabs", "Metropolis Healthcare", "SRL Diagnostics", "Thyrocare")
+- report_date: The date the report was generated
+- visit_date (common_data): The sample collection date
+
+### RULE 6 — FILE NAMING:
+Format: [Patient Name] - [Primary Panel] Report - [D Mon YYYY]
+Examples:
+- "Shivansh Rana - Lipid Profile Report - 21 Sep 2026"
+- "Priya Mehta - Complete Blood Count Report - 15 Aug 2026"
+- "Ramesh Kumar - Comprehensive Metabolic Panel Report - 1 Jan 2026"
+
+### RULE 7 — SUMMARY (MANDATORY — STRUCTURED LAB REPORT FORMAT):
+
+STEP 7.0: PRE-SUMMARY PREPARATION:
+Create list: abnormal_tests = []
+For each category → each test: if is_abnormal == true → add to abnormal_tests list
+Verify: length(abnormal_tests) == total_abnormalities (if mismatch → RECOUNT!)
+
+STEP 7.1: OPENING (NO count mentioned):
+"[Patient Name]'s lab report from [Lab Name] on [Date] evaluated [panels tested]."
+
+STEP 7.2: BODY — DETAIL ALL ABNORMAL TESTS (MANDATORY — EVERY ONE):
+For each test in abnormal_tests:
+"[Test Name] is [elevated/high/low] at [value] [unit] (reference: [range])."
+
+STEP 7.3: NORMAL TESTS (one sentence):
+"[Key normal parameters] are within normal limits."
+
+STEP 7.4: CLOSING (EXACT count — MANDATORY):
+"Total [X] abnormalities detected across all parameters tested."
+[X] MUST exactly equal total_abnormalities
+
+STEP 7.9: POST-SUMMARY VALIDATION:
+Count of tests mentioned in body == total_abnormalities (if not → regenerate summary!)
+
+### RULE 8 — CLINICAL NARRATIVE (NEW):
+Write a separate 3-5 sentence "clinical_narrative" in plain English for the patient/caregiver:
+- Sentence 1: Overall health picture ("Your overall metabolic profile shows...")
+- Sentence 2: Most important concern ("The most concerning finding is...")
+- Sentence 3: What is going well ("On the positive side, your...")
+- Sentence 4: What to watch / follow up ("You should discuss with your doctor...")
+This narrative is patient-friendly — no medical jargon. It goes in report_data.clinical_narrative.
+
+### RULE 9 — REASONING TRACE (NEW):
+Before the JSON, mentally trace your extraction logic (100-200 words) and embed it in the "reasoning" field.
+Describe: which panels were detected, how many tests extracted, key abnormal findings, confidence level, scan quality.
 
 ═══════════════════════════════════════════════════════════════════════════════
 SECTION B: OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════════════════════════
 
-Return ONLY a strict, valid JSON object matching this exact structure:
-- Output raw JSON ONLY. No markdown code blocks (no \`\`\`json).
-- Empty arrays [] if no data, never null for arrays.
-- Boolean fields must never be null.
+Return ONLY a strict, valid JSON object. NO markdown code blocks (no \`\`\`json). Raw JSON ONLY.
+Empty arrays [] if no data, never null for arrays. Boolean fields must never be null.
 
 {
+  "reasoning": "After analyzing this lab report from [lab name], I identified [N] clinical panels containing [M] individual tests. Key findings include: [summary]. Scan clarity is [clear/blurry]. Confidence: [X]%. Abnormality count verified at [N] using explicit counting algorithm.",
   "document_type": "medical_report",
-  "file_name": "[Patient Name] - [Primary Test Category] Report - [D Mon YYYY]",
+  "file_name": "[Patient Name] - [Primary Panel] Report - [D Mon YYYY]",
   "analysis_metadata": {
     "confidence_score": 0.95,
-    "scan_clarity": "clear" | "blurry" | "unreadable"
+    "scan_clarity": "clear | blurry | unreadable"
   },
   "error_response": {
     "is_error": false,
@@ -77,13 +172,13 @@ Return ONLY a strict, valid JSON object matching this exact structure:
     "technical_reason": null
   },
   "patient_info": {
-    "name": "String or null",
+    "name": "String (no salutations) or null",
     "age": "String or null",
     "gender": "String or null"
   },
   "common_data": {
     "visit_date": "YYYY-MM-DD or null",
-    "summary": "String (Patient-friendly clinical summary)"
+    "summary": "Full structured summary per RULE 7 above"
   },
   "prescription_data": {
     "doctor_name": null,
@@ -96,6 +191,7 @@ Return ONLY a strict, valid JSON object matching this exact structure:
     "lab_name": "String or null",
     "report_date": "YYYY-MM-DD or null",
     "total_abnormalities": 0,
+    "clinical_narrative": "3-5 sentence patient-friendly narrative per RULE 8",
     "grouped_metrics": [
       {
         "category_name": "Lipid Profile",
@@ -103,16 +199,37 @@ Return ONLY a strict, valid JSON object matching this exact structure:
           {
             "test_name": "Total Cholesterol",
             "value": "218",
+            "numeric_value": 218.0,
             "unit": "mg/dL",
             "reference_range": "< 200",
             "is_abnormal": true,
+            "severity": "borderline",
             "method": null
           }
         ]
       }
     ]
   }
-}`;
+}
+
+═══════════════════════════════════════════════════════════════════════════════
+FINAL VALIDATION CHECKLIST (Before outputting JSON)
+═══════════════════════════════════════════════════════════════════════════════
+
+- [ ] document_type correctly classified as "medical_report" or "invalid"
+- [ ] All salutations removed from patient name
+- [ ] Dates converted to YYYY-MM-DD
+- [ ] EVERY test extracted including last in each category ⚠️
+- [ ] Ultra-strict abnormality detection applied (Types 1-5) ⚠️
+- [ ] Explicit counting algorithm used — total_abnormalities is a mathematical count ⚠️
+- [ ] severity field set for every metric ⚠️
+- [ ] numeric_value (float) set for every metric that has a numeric result ⚠️
+- [ ] clinical_narrative written in plain patient-friendly language ⚠️
+- [ ] reasoning field populated (100-200 words) ⚠️
+- [ ] Summary opening has NO count; closing has EXACT count ⚠️
+- [ ] All abnormal tests detailed in summary body ⚠️
+- [ ] No markdown code blocks — raw JSON only
+- [ ] Empty arrays [], never null for arrays`;
 
 export default async function handler(req, res) {
   // CORS configuration
@@ -159,7 +276,7 @@ export default async function handler(req, res) {
     const buffer = await fileData.arrayBuffer();
     const base64Data = Buffer.from(buffer).toString('base64');
 
-    // 3. Multi-model & multi-key fallback cascade to ensure 100% uptime and bypass 20 RPD free-tier caps
+    // 3. Multi-model & multi-key fallback cascade — same as extract-prescription.js
     const candidateKeys = [
       process.env.GEMINI_API_KEY_REPORT,
       process.env.GEMINI_API_KEY_COMMON,
@@ -201,7 +318,7 @@ export default async function handler(req, res) {
             ],
             config: {
               responseMimeType: 'application/json',
-              temperature: 0.1, // Precision biomarker extraction
+              temperature: 0.1, // Precision biomarker extraction — low temperature mandatory
             }
           });
           if (response?.text) break keyLoop;
@@ -222,8 +339,8 @@ export default async function handler(req, res) {
     }
 
     const resultText = response.text;
-    
-    // Safety parse just in case
+
+    // Safety parse — strip markdown fences just in case
     let parsedResult;
     try {
       parsedResult = JSON.parse(resultText);

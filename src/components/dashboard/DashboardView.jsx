@@ -507,7 +507,43 @@ export const DashboardView = () => {
     }));
   };
 
-  const vitalsBiomarkers = {};
+  // Build real biomarker trend data from all Blood Test documents (sorted by date)
+  const buildBiomarkersFromDocs = (docs) => {
+    const biomarkers = {};
+    const bloodTestDocs = docs
+      .filter(d => d.type === 'Blood Test' && d.ai_analysis_result?.report_data?.grouped_metrics)
+      .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+
+    bloodTestDocs.forEach(doc => {
+      const panels = doc.ai_analysis_result.report_data.grouped_metrics;
+      const dateLabel = doc.date
+        ? new Date(doc.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+        : 'Unknown';
+
+      panels.forEach(panel => {
+        panel.metrics.forEach(metric => {
+          const key = metric.test_name;
+          if (!biomarkers[key]) {
+            biomarkers[key] = { unit: metric.unit, label: metric.test_name, data: [] };
+          }
+          const numVal = metric.numeric_value ?? parseFloat(metric.value);
+          if (!isNaN(numVal)) {
+            biomarkers[key].data.push({
+              month: dateLabel,
+              value: numVal,
+              unit: metric.unit,
+              is_abnormal: metric.is_abnormal,
+            });
+          }
+        });
+      });
+    });
+
+    return biomarkers;
+  };
+
+  const vitalsBiomarkers = buildBiomarkersFromDocs(profileDocs);
+  const bloodTestDocs = profileDocs.filter(d => d.type === 'Blood Test' && d.ai_analysis_result?.report_data);
 
   // Filtered slices for active profile (supports 'all' for consolidated view)
   const isAllFamily = !activeProfile || activeProfile.id === 'all';
@@ -618,6 +654,7 @@ export const DashboardView = () => {
             medications={profileMeds}
             documents={profileDocs}
             biomarkers={vitalsBiomarkers}
+            reportDocs={bloodTestDocs}
             conflicts={[]}
             events={events}
             onSyncMedicine={handleSyncMedicine}

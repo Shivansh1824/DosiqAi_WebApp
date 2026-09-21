@@ -5,6 +5,7 @@ import { UploadDocumentModal }  from './UploadDocumentModal';
 import { CareLoopSection }      from './CareLoopSection';
 import { QuickProfileSwitcher } from './QuickProfileSwitcher';
 import { ClinicalAnalysisScreen } from './clinical/ClinicalAnalysisScreen';
+import { LabReportAnalysisScreen } from './clinical/LabReportAnalysisScreen';
 import { extractDocumentData } from '../../lib/documentService';
 
 export const MedicalSection = ({
@@ -59,8 +60,25 @@ export const MedicalSection = ({
     if (onAnalysisStateChange) onAnalysisStateChange(false);
   };
 
-  // If a document is selected or extracted, render the dedicated Clinical Analysis Screen
+  // Route to the correct screen based on document type
   if (analysisDoc) {
+    const isLabReport = analysisDoc.type === 'Blood Test' ||
+      analysisDoc.ai_analysis_result?.document_type === 'medical_report';
+    const allReportDocs = documents.filter(d =>
+      d.type === 'Blood Test' && d.ai_analysis_result?.report_data
+    );
+
+    if (isLabReport) {
+      return (
+        <LabReportAnalysisScreen
+          doc={analysisDoc}
+          onBack={handleBackFromAnalysis}
+          isExtracting={analysisDoc?.isExtracting}
+          allReportDocs={allReportDocs}
+        />
+      );
+    }
+
     return (
       <ClinicalAnalysisScreen
         doc={analysisDoc}

@@ -13,6 +13,7 @@ export const HealthSection = ({
   medications = [], 
   documents = [],
   biomarkers = {}, 
+  reportDocs = [],
   conflicts = [], 
   events = [],
   onSyncMedicine,
@@ -122,7 +123,7 @@ export const HealthSection = ({
       {activeTab === 'biomarkers' && (
         <div className="flex flex-col gap-6">
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-            <LabTrendsSection biomarkers={biomarkers} documents={documents} />
+          <LabTrendsSection biomarkers={biomarkers} documents={reportDocs} />
           </div>
         </div>
       )}

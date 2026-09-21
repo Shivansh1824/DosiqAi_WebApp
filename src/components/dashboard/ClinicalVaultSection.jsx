@@ -88,8 +88,9 @@ const DocCard = ({ doc, onClick }) => {
   const Icon = meta.icon;
   const ai = doc.ai_analysis_result;
   const isRx = doc.type === 'Prescription';
+  const isBloodTest = doc.type === 'Blood Test';
 
-  // 1. Primary File Name (Uploaded or stored file name)
+  // 1. Primary File Name
   const uploadedFileName = doc.local_file_path || 
     doc.file_name || 
     doc.original_filename || 
@@ -101,16 +102,16 @@ const DocCard = ({ doc, onClick }) => {
     ? uploadedFileName.split('/').pop() 
     : uploadedFileName;
 
-  // Decoded title coming from the JSON (e.g. "Shivanya - Cough and Cold Prescription - 26 Dec 2025")
+  // 2. AI-decoded title from JSON
   const jsonFileName = ai?.file_name || 
     doc.ai_file_name || 
     (doc.diagnosis && !doc.diagnosis.includes('Protocol') && !doc.diagnosis.includes('Record')
-      ? `${doc.patient_name || 'Patient'} - ${doc.diagnosis} Prescription`
+      ? `${doc.patient_name || 'Patient'} - ${doc.diagnosis} ${isRx ? 'Prescription' : 'Report'}`
       : null) ||
     (doc.file_name && !doc.file_name.toLowerCase().startsWith('photo') && !doc.file_name.toLowerCase().endsWith('.jpg') && !doc.file_name.toLowerCase().endsWith('.jpeg') && !doc.file_name.toLowerCase().endsWith('.png') ? doc.file_name : null) ||
     (isRx ? 'Prescription Clinical Dossier' : 'Diagnostic Lab Analysis');
 
-  // 3. Doctor's Name from JSON / Document
+  // 3. Doctor / Lab name
   const doctorName = ai?.prescription_data?.doctor_name || 
     ai?.report_data?.referred_by || 
     ai?.report_data?.lab_name || 
@@ -118,11 +119,15 @@ const DocCard = ({ doc, onClick }) => {
     (doc.issued_by && !doc.issued_by.includes('Consulting') ? doc.issued_by : null) ||
     (isRx ? 'Dr. R. Mehta, MD (Cardiology)' : 'Metropolis Healthcare Labs');
 
-  // 4. Hospital / Clinic Name
+  // 4. Hospital / Lab name
   const hospitalName = ai?.prescription_data?.hospital_name || 
     ai?.report_data?.lab_name || 
     doc.hospital || 
     (doc.clinic && doc.clinic !== 'Clinical Vault' ? doc.clinic : null);
+
+  // 5. Abnormality data (Blood Test only)
+  const totalAbnormalities = ai?.report_data?.total_abnormalities ?? null;
+  const totalTests = (ai?.report_data?.grouped_metrics || []).reduce((acc, p) => acc + p.metrics.length, 0);
 
   const dateFormatted = doc.date
     ? new Date(doc.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -138,10 +143,20 @@ const DocCard = ({ doc, onClick }) => {
           <div className={`w-9 h-9 rounded-xl ${color.bg} ${color.icon} flex items-center justify-center shrink-0 border ${color.border}`}>
             <Icon className="w-4 h-4" />
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${color.badge}`}>
               {meta.label}
             </span>
+            {/* Abnormality count badge for Blood Tests */}
+            {isBloodTest && totalAbnormalities !== null && (
+              <span className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                totalAbnormalities > 0
+                  ? 'bg-rose-50 border-rose-200 text-rose-700'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              }`}>
+                {totalAbnormalities > 0 ? `${totalAbnormalities} Abnormal` : 'All Normal'}
+              </span>
+            )}
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
               <button 
                 className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors" 
@@ -155,17 +170,15 @@ const DocCard = ({ doc, onClick }) => {
         </div>
 
         <div>
-          {/* Primary Title: Name coming from the JSON in bold black */}
+          {/* Primary Title */}
           <h4 className="text-sm font-black text-slate-900 leading-snug tracking-tight" title={jsonFileName}>
             {jsonFileName}
           </h4>
 
-          {/* Doctor's Name & Clinic/Hospital */}
+          {/* Doctor / Lab info */}
           <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-1.5 flex-wrap">
             <Stethoscope className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="font-bold text-slate-800">
-              {doctorName}
-            </span>
+            <span className="font-bold text-slate-800">{doctorName}</span>
             {hospitalName && (
               <>
                 <span className="text-slate-300">•</span>
@@ -173,6 +186,16 @@ const DocCard = ({ doc, onClick }) => {
               </>
             )}
           </div>
+
+          {/* Blood test stats row */}
+          {isBloodTest && totalTests > 0 && (
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="text-[10px] text-slate-400 font-medium">{totalTests} parameters tested</span>
+              {totalAbnormalities > 0 && (
+                <span className="text-[10px] text-rose-500 font-bold">· {totalAbnormalities} out of range</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
