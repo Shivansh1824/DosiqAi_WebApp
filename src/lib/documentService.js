@@ -142,15 +142,45 @@ export const processDocumentFilesForVault = async (userId, files = [], docType =
           finalBlob = new Blob([], { type: finalMime });
         }
       }
+    } else if (single.fileObj) {
+      finalBlob = single.fileObj;
     } else {
       finalBlob = new Blob([], { type: finalMime });
     }
   }
 
+  let fileBase64 = null;
+  if (isMulti && finalBlob) {
+    fileBase64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(finalBlob);
+    });
+  } else if (files[0]?.dataUrl) {
+    fileBase64 = files[0].dataUrl;
+  } else if (finalBlob && finalBlob.size > 0) {
+    fileBase64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(finalBlob);
+    });
+  }
+
   let cloudFileKey = null;
-  if (userId && finalBlob) {
-    const uploadRes = await uploadFileToVault(userId, finalBlob, finalFileName, finalMime);
-    cloudFileKey = uploadRes.path;
+  const safeUserId = userId || 'vault';
+  const targetPath = `${safeUserId}/${Date.now()}_${finalFileName}`;
+  if (userId && finalBlob && finalBlob.size > 0) {
+    try {
+      const uploadRes = await uploadFileToVault(userId, finalBlob, finalFileName, finalMime);
+      cloudFileKey = uploadRes.path || targetPath;
+    } catch (uploadErr) {
+      console.warn('Client upload note (handled by backend):', uploadErr?.message);
+      cloudFileKey = targetPath;
+    }
+  } else {
+    cloudFileKey = targetPath;
   }
 
   return {
@@ -158,6 +188,8 @@ export const processDocumentFilesForVault = async (userId, files = [], docType =
     cloudFileKey,
     pageCount,
     isMulti,
+    fileBase64,
+    finalMime,
   };
 };
 
@@ -169,13 +201,33 @@ export const processDocumentFilesForVault = async (userId, files = [], docType =
  * @param {string} docType - 'Prescription' | 'Blood Test'
  * @returns {Promise<{ isValidOverall: boolean, pages: Array }>}
  */
-export const checkDocumentValidity = async (cloudFileKey, docType) => {
+export const checkDocumentValidity = async (cloudFileKey, docType, fileBase64 = null, mimeType = null) => {
   const functionName = docType === 'Prescription'
     ? 'check-prescription'
     : 'check-report';
 
+  const payload = {
+    cloud_file_key: cloudFileKey,
+    file_base64: fileBase64,
+    mime_type: mimeType,
+  };
+
+  // 1. Try local dev server endpoint first if available
+  try {
+    const localRes = await fetch(`/api/${functionName}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (localRes.ok) {
+      const data = await localRes.json();
+      if (data?.success && data?.analysis) return data.analysis;
+    }
+  } catch (_) {}
+
+  // 2. Fall back to remote Supabase Edge Function
   const { data, error } = await supabase.functions.invoke(functionName, {
-    body: { cloud_file_key: cloudFileKey },
+    body: payload,
   });
 
   if (error) {
@@ -194,29 +246,66 @@ export const checkDocumentValidity = async (cloudFileKey, docType) => {
  *
  * @param {string} cloudFileKey - Supabase path to the uploaded file
  * @param {string} docType - 'Prescription' | 'Blood Test'
+ * @param {string} [fileBase64] - Direct base64 data URL / string
+ * @param {string} [mimeType] - MIME type of document
  * @returns {Promise<Object>}
  */
-export const extractDocumentData = async (cloudFileKey, docType) => {
+export const extractDocumentData = async (cloudFileKey, docType, fileBase64 = null, mimeType = null) => {
   const functionName = docType === 'Prescription'
     ? 'extract-prescription'
     : 'extract-report';
 
-  const { data, error } = await supabase.functions.invoke(functionName, {
-    body: { cloud_file_key: cloudFileKey },
-  });
+  const payload = {
+    cloud_file_key: cloudFileKey,
+    file_base64: fileBase64,
+    mime_type: mimeType,
+  };
 
-  if (error) {
-    console.error(`Supabase Edge Function ${functionName} failed:`, error);
-    throw new Error(error.message || `Clinical extraction failed (${functionName})`);
+  let data = null;
+  let lastError = null;
+
+  // 1. Try local dev server endpoint first (fast, direct Gemini SDK)
+  try {
+    const localRes = await fetch(`/api/${functionName}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (localRes.ok) {
+      data = await localRes.json();
+    } else {
+      const errJson = await localRes.json().catch(() => ({}));
+      lastError = new Error(errJson.error || `HTTP ${localRes.status}`);
+    }
+  } catch (netErr) {
+    lastError = netErr;
   }
 
-  if (!data?.success) throw new Error(data?.error || 'Clinical extraction returned unsuccessful');
+  // 2. Fall back to remote Supabase Edge Function
+  if (!data?.success) {
+    const edgeRes = await supabase.functions.invoke(functionName, {
+      body: payload,
+    });
+    if (edgeRes.data?.success) {
+      data = edgeRes.data;
+    } else {
+      lastError = edgeRes.error || new Error(edgeRes.data?.error || 'Extraction failed');
+    }
+  }
 
-  // Persist result to documents table by cloud_file_key
-  await supabase
-    .from('documents')
-    .update({ ai_analysis_result: data.extraction, ai_analysis_status: 'completed' })
-    .eq('cloud_file_key', cloudFileKey);
+  if (!data?.success) {
+    console.error(`Clinical Extraction ${functionName} failed:`, lastError);
+    throw lastError || new Error(`Clinical extraction failed (${functionName})`);
+  }
+
+  // Persist result to documents table by cloud_file_key if possible
+  if (cloudFileKey) {
+    await supabase
+      .from('documents')
+      .update({ ai_analysis_result: data.extraction, ai_analysis_status: 'completed' })
+      .eq('cloud_file_key', cloudFileKey)
+      .catch(() => {});
+  }
 
   return data.extraction;
 };

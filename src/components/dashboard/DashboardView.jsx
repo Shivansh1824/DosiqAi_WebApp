@@ -89,7 +89,14 @@ export const DashboardView = () => {
       const raw = membersRes.data || [];
       let mergedList = [];
       if (raw.length === 0 && user.id === 'demo-caregiver-judge-01') {
-        mergedList = [
+        const savedDemoProfiles = localStorage.getItem('dosiq_demo_profiles');
+        let parsed = null;
+        if (savedDemoProfiles) {
+          try {
+            parsed = JSON.parse(savedDemoProfiles);
+          } catch (_) {}
+        }
+        mergedList = (parsed && parsed.length > 0) ? parsed : [
           { id: 'demo-self-01', name: 'Alex Sharma', relationship: 'Self', onboarding_completed: true },
           { id: 'demo-dad-01', name: 'Rajesh Sharma', relationship: 'Father', age: '64', onboarding_completed: true, avatar_url: 'preset-4' },
           { id: 'demo-mom-01', name: 'Sunita Sharma', relationship: 'Mother', age: '61', onboarding_completed: true, avatar_url: 'preset-5' },
@@ -133,11 +140,11 @@ export const DashboardView = () => {
             file_name: uploadedFileName,
             local_file_path: d.local_file_path || uploadedFileName,
             ai_file_name: jsonFileName,
-            doctor: doctorFromAi || (d.issued_by && !d.issued_by.includes('Consulting') ? d.issued_by : (isRx ? 'Dr. R. Mehta, MD (Cardiology)' : 'Metropolis Healthcare Labs')),
+            doctor: doctorFromAi || (d.issued_by && !d.issued_by.includes('Consulting') ? d.issued_by : (isRx ? 'Attending Physician' : 'Clinical Pathology Laboratory')),
             clinic: hospitalFromAi || 'Clinical Vault',
             hospital: hospitalFromAi,
             date: ai?.report_data?.report_date || ai?.report_data?.collection_date || ai?.common_data?.visit_date || d.visit_date || (d.created_at ? d.created_at.split('T')[0] : '2026-09-20'),
-            diagnosis: diagnosisFromAi || (d.diagnosis && !d.diagnosis.includes('Protocol') ? d.diagnosis : (isRx ? 'Essential Hypertension & Cardiac Care' : 'Complete Metabolic & Lipid Panel')),
+            diagnosis: diagnosisFromAi || (d.diagnosis && !d.diagnosis.includes('Protocol') ? d.diagnosis : (isRx ? 'Prescription Regimen' : 'Complete Metabolic & Lipid Panel')),
             verified: d.ai_analysis_status === 'completed',
             badge: d.type === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded',
             ai_status: d.ai_analysis_status || 'completed',

@@ -98,10 +98,19 @@ export const AuthProvider = ({ children }) => {
       try {
         const isDemo = localStorage.getItem('dosiq_demo_mode') === 'true';
         if (isDemo) {
+          const isDemoOnboarded = localStorage.getItem('dosiq_demo_onboarded') === 'true';
+          const savedProfiles = localStorage.getItem('dosiq_demo_profiles');
+          let parsedSelf = DEMO_PRIMARY_PROFILE;
+          if (savedProfiles) {
+            try {
+              const list = JSON.parse(savedProfiles);
+              if (list && list[0]) parsedSelf = list[0];
+            } catch (_) {}
+          }
           setUser(DEMO_USER);
           setSession({ user: DEMO_USER, access_token: 'demo-token' });
-          setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
-          setIsOnboarded(true);
+          setCurrentFamilyMember(parsedSelf);
+          setIsOnboarded(isDemoOnboarded);
           setLoading(false);
           return;
         }
@@ -201,13 +210,21 @@ export const AuthProvider = ({ children }) => {
   };
 
   // 1-Click Demo Login for Hackathon Judges & Evaluators (Bypasses OTP, email, and passwords)
-  const signInAsDemo = async ({ startOnboarding = false } = {}) => {
+  const signInAsDemo = async ({ startOnboarding = true } = {}) => {
     try {
       localStorage.setItem('dosiq_demo_mode', 'true');
       setUser(DEMO_USER);
       setSession({ user: DEMO_USER, access_token: 'demo-token' });
-      setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
-      setIsOnboarded(!startOnboarding);
+
+      if (startOnboarding) {
+        localStorage.removeItem('dosiq_demo_onboarded');
+        setCurrentFamilyMember({ ...DEMO_PRIMARY_PROFILE, onboarding_completed: false });
+        setIsOnboarded(false);
+      } else {
+        localStorage.setItem('dosiq_demo_onboarded', 'true');
+        setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
+        setIsOnboarded(true);
+      }
       return { user: DEMO_USER, session: { user: DEMO_USER } };
     } catch (err) {
       console.error('Error signing in as demo:', err);
@@ -226,11 +243,34 @@ export const AuthProvider = ({ children }) => {
         name: primary.name?.trim() || 'Alex Sharma',
         relationship: 'Self',
         telegram_username: primary.telegram_username?.trim() || null,
+        avatar_url: primary.avatar || null,
         morning_dose_time: (primary.doseTime?.morning || '08:00') + ':00',
         afternoon_dose_time: (primary.doseTime?.afternoon || '14:00') + ':00',
         night_dose_time: (primary.doseTime?.night || '20:00') + ':00',
         onboarding_completed: true,
       };
+
+      const formattedFamily = (familyMembers || []).map((m, idx) => ({
+        id: `demo-family-${idx + 1}`,
+        user_id: user.id,
+        name: m.name?.trim() || m.relationship,
+        relationship: m.relationship,
+        age: m.age || (m.relationship === 'Father' ? 64 : m.relationship === 'Mother' ? 61 : null),
+        telegram_username: m.telegram_username?.trim() || null,
+        avatar_url: m.avatar || null,
+        morning_dose_time: (m.doseTime?.morning || '08:00') + ':00',
+        afternoon_dose_time: (m.doseTime?.afternoon || '14:00') + ':00',
+        night_dose_time: (m.doseTime?.night || '20:00') + ':00',
+        onboarding_completed: true,
+      }));
+
+      const finalFamilyList = formattedFamily.length > 0 ? formattedFamily : [
+        { id: 'demo-dad-01', user_id: user.id, name: 'Rajesh Sharma', relationship: 'Father', age: 64, onboarding_completed: true, avatar_url: 'preset-4' },
+        { id: 'demo-mom-01', user_id: user.id, name: 'Sunita Sharma', relationship: 'Mother', age: 61, onboarding_completed: true, avatar_url: 'preset-5' },
+      ];
+
+      localStorage.setItem('dosiq_demo_profiles', JSON.stringify([demoSelf, ...finalFamilyList]));
+      localStorage.setItem('dosiq_demo_onboarded', 'true');
       setCurrentFamilyMember(demoSelf);
       setIsOnboarded(true);
       return;
@@ -302,6 +342,8 @@ export const AuthProvider = ({ children }) => {
   // Sign Out
   const signOut = async () => {
     localStorage.removeItem('dosiq_demo_mode');
+    localStorage.removeItem('dosiq_demo_onboarded');
+    localStorage.removeItem('dosiq_demo_profiles');
     setUser(null);
     setSession(null);
     setCurrentFamilyMember(null);

@@ -236,16 +236,23 @@ export const AuthCard = () => {
           </div>
           <button
             type="button"
-            onClick={() => signInAsDemo()}
+            onClick={() => signInAsDemo({ startOnboarding: true })}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-xs font-black shadow-md shadow-slate-900/15 transition-all duration-150 group cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-12 transition-transform" />
-            <span>Launch Live Demo Dashboard</span>
+            <span>⚡ Launch Demo Onboarding &amp; Vault</span>
             <ArrowRight className="w-3.5 h-3.5 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
           </button>
-          <p className="text-[10px] text-slate-500 text-center leading-tight">
-            Instant evaluation access · explore clinical vault &amp; biomarker visualizer
-          </p>
+          <div className="flex items-center justify-between px-1 text-[10px] text-slate-500">
+            <span>Experience full setup &amp; Care Loop</span>
+            <button
+              type="button"
+              onClick={() => signInAsDemo({ startOnboarding: false })}
+              className="text-emerald-700 hover:text-emerald-800 font-bold underline cursor-pointer"
+            >
+              or jump straight to Dashboard →
+            </button>
+          </div>
         </div>
 
         {/* Divider */}

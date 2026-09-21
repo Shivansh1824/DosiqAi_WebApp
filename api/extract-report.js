@@ -247,34 +247,56 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { cloud_file_key } = req.body;
+    const { cloud_file_key, file_base64, mime_type } = req.body;
 
-    if (!cloud_file_key) {
-      return res.status(400).json({ error: 'Missing cloud_file_key' });
+    let base64Data = file_base64;
+    let mimeType = mime_type;
+    const storagePath = cloud_file_key ? cloud_file_key.replace(/^medical-vault\//, '') : `upload_${Date.now()}.pdf`;
+
+    if (!base64Data && cloud_file_key) {
+      // 1. Download file securely from Supabase
+      const { data: fileData, error: downloadError } = await supabase
+        .storage
+        .from('medical-vault')
+        .download(storagePath);
+
+      if (downloadError || !fileData) {
+        console.error('Supabase Download Error:', downloadError);
+        return res.status(500).json({ error: 'Failed to download secure document from vault.' });
+      }
+
+      mimeType = storagePath.toLowerCase().endsWith('.pdf') ? 'application/pdf' :
+                 storagePath.toLowerCase().endsWith('.png') ? 'image/png' :
+                 'image/jpeg';
+
+      const buffer = await fileData.arrayBuffer();
+      base64Data = Buffer.from(buffer).toString('base64');
+    } else if (base64Data) {
+      if (base64Data.includes(',')) {
+        const parts = base64Data.split(',');
+        if (!mimeType) {
+          const match = parts[0].match(/data:(.*?);base64/);
+          if (match) mimeType = match[1];
+        }
+        base64Data = parts[1];
+      }
+      if (!mimeType) mimeType = 'application/pdf';
+
+      // Persist to Supabase storage with service role
+      try {
+        const buf = Buffer.from(base64Data, 'base64');
+        await supabase.storage.from('medical-vault').upload(storagePath, buf, {
+          contentType: mimeType,
+          upsert: true,
+        });
+      } catch (uploadErr) {
+        console.warn('Storage upload error (handled):', uploadErr.message);
+      }
     }
 
-    // Normalize storage path (strip bucket prefix if present)
-    const storagePath = cloud_file_key.replace(/^medical-vault\//, '');
-
-    // 1. Download file securely from Supabase
-    const { data: fileData, error: downloadError } = await supabase
-      .storage
-      .from('medical-vault')
-      .download(storagePath);
-
-    if (downloadError || !fileData) {
-      console.error('Supabase Download Error:', downloadError);
-      return res.status(500).json({ error: 'Failed to download secure document from vault.' });
+    if (!base64Data) {
+      return res.status(400).json({ error: 'Missing cloud_file_key or file_base64' });
     }
-
-    // Determine mimeType
-    const mimeType = storagePath.toLowerCase().endsWith('.pdf') ? 'application/pdf' :
-                     storagePath.toLowerCase().endsWith('.png') ? 'image/png' :
-                     'image/jpeg';
-
-    // 2. Convert file Blob to Base64
-    const buffer = await fileData.arrayBuffer();
-    const base64Data = Buffer.from(buffer).toString('base64');
 
     // 3. Multi-model & multi-key fallback cascade — same as extract-prescription.js
     const candidateKeys = [
@@ -284,12 +306,13 @@ export default async function handler(req, res) {
     ].filter(Boolean);
 
     const candidateModels = [
-      'gemini-3.8-flash',
-      'gemini-3.7-flash',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
+      'gemini-flash-lite-latest',
+      'gemini-flash-latest',
       'gemini-3.5-flash-lite',
       'gemini-3.1-flash-lite',
+      'gemini-3.6-flash',
+      'gemini-3.7-flash',
+      'gemini-3.8-flash',
     ];
 
     let response;

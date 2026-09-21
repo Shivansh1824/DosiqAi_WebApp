@@ -333,7 +333,7 @@ const Step2Form = ({ members, onAdd, onUpdate, onRemove, onComplete, loading, on
           <div>
             <p className="text-xs font-bold text-sky-800">Telegram Care Loop</p>
             <p className="text-[11px] text-sky-600 mt-0.5">
-              Phone numbers you've entered are pre-linked. Connect the bot after setup for 1-tap check-ins.
+              Telegram handles link directly to the bot. Send /start to <strong className="font-mono text-sky-900">@dosiq_care_bot</strong> anytime to activate 1-tap medication check-ins.
             </p>
           </div>
         </div>

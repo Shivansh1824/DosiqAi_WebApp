@@ -117,7 +117,7 @@ const DocCard = ({ doc, onClick }) => {
     ai?.report_data?.lab_name || 
     (doc.doctor && !doc.doctor.includes('Consulting') ? doc.doctor : null) ||
     (doc.issued_by && !doc.issued_by.includes('Consulting') ? doc.issued_by : null) ||
-    (isRx ? 'Dr. R. Mehta, MD (Cardiology)' : 'Metropolis Healthcare Labs');
+    (isRx ? (doc.doctor || 'Attending Physician') : (doc.doctor || 'Clinical Pathology Laboratory'));
 
   // 4. Hospital / Lab name
   const hospitalName = ai?.prescription_data?.hospital_name || 
