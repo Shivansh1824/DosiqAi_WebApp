@@ -11,8 +11,10 @@ npm-debug.log*
 progress-tracker.html
 *.tracker.html
 
-# System files
+# System & Build files
 .DS_Store
+dist/
+deno.lock
 supabase/.temp/
 
 # Private Sample Files (Git-Ignored for Privacy)
