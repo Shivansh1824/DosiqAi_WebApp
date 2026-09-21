@@ -134,25 +134,75 @@ export const DashboardView = () => {
         setDocuments(formattedDocs);
       }
 
-      // 4. Format medication schedules
-      if (medsRes.data) {
-        const formattedMeds = medsRes.data.map(m => ({
-          id: m.id,
-          family_member_id: m.family_member_id,
-          name: m.name,
-          brand: m.generic_name || m.name,
-          category: m.medicine_purpose || m.medicine_type || 'Prescription',
-          categoryColor: 'emerald',
-          slot: m.timing_dosage || 'morning',
-          time: m.reminder_times?.[0] || '08:00',
-          food: m.food_relationship || 'With Food',
-          duration: m.duration_days ? `${m.duration_days} days` : 'Ongoing',
-          status: 'pending',
-          confirmedAt: null,
-          channel: null,
-        }));
-        setMedications(formattedMeds);
+      // 4. Format medication schedules & extract from prescription documents
+      const syncedMeds = (medsRes.data || []).map(m => ({
+        id: m.id,
+        family_member_id: m.family_member_id,
+        name: m.name,
+        brand: m.name,
+        scientific_name: m.generic_name || m.name,
+        category: m.medicine_purpose || m.medicine_type || 'Prescription',
+        categoryColor: 'emerald',
+        slot: m.timing_dosage || '1-0-1',
+        time: m.reminder_times?.[0] || '08:00 AM',
+        food: m.food_relationship || 'With Food',
+        duration: m.duration_days ? `${m.duration_days} days` : 'Ongoing',
+        status: m.status || 'active',
+        is_synced: true,
+        doc_id: m.document_id || null,
+        doc_name: m.document_name || 'Active Regimen',
+        confirmedAt: null,
+        channel: 'telegram',
+      }));
+
+      // 5. Extract medicines from decoded prescription documents
+      const docMeds = [];
+      if (docsRes.data) {
+        docsRes.data.forEach(d => {
+          const rxMedicines = d.ai_analysis_result?.prescription_data?.medicines;
+          if (Array.isArray(rxMedicines)) {
+            rxMedicines.forEach((med, mIdx) => {
+              const medName = med.exact_written_name || med.name || 'Prescription Drug';
+              const isAlreadySynced = syncedMeds.some(sm => 
+                sm.name.toLowerCase() === medName.toLowerCase()
+              );
+
+              if (!isAlreadySynced) {
+                const enriched = med.assumed_enriched_data || {};
+                const timing = med.timing || {};
+                const mealRelation = timing.relation_to_meal ? timing.relation_to_meal.replace('_', ' ') : 'After Food';
+                const dosage = timing.dosage || (timing.total_times_per_day ? `${timing.total_times_per_day}x Daily` : 'Daily');
+
+                docMeds.push({
+                  id: `doc_med_${d.id}_${mIdx}`,
+                  family_member_id: d.family_member_id,
+                  name: medName,
+                  brand: medName,
+                  strength: med.strength || null,
+                  form: med.form || 'Medicine',
+                  scientific_name: enriched.scientific_name || null,
+                  category: enriched.medicine_purpose || enriched.medicine_type || 'Prescription',
+                  categoryColor: 'emerald',
+                  slot: dosage,
+                  time: '08:00 AM',
+                  food: mealRelation,
+                  duration: med.duration_days ? `${med.duration_days} days` : 'As Prescribed',
+                  status: 'unlinked',
+                  is_synced: false,
+                  doc_id: d.id,
+                  doc_name: d.ai_analysis_result?.file_name || d.local_file_path || d.file_name || 'Prescription Dossier',
+                  doctor_name: d.ai_analysis_result?.prescription_data?.doctor_name || d.issued_by || 'Attending Physician',
+                  dosage_instruction: med.dosage_instruction || null,
+                  timing: timing,
+                  interval_days: med.interval_days,
+                });
+              }
+            });
+          }
+        });
       }
+
+      setMedications([...syncedMeds, ...docMeds]);
 
     } catch (err) {
       console.error('Error hydrating dashboard from Supabase:', err);
@@ -323,6 +373,117 @@ export const DashboardView = () => {
     }
   };
 
+  // Live Sync Medicine to Telegram Care Loop
+  const handleSyncMedicine = async (med) => {
+    // 1. Update state immediately
+    setMedications(prev => prev.map(m => {
+      if (m.id === med.id || (m.name === med.name && m.doc_id === med.doc_id)) {
+        return {
+          ...m,
+          status: 'active',
+          is_synced: true,
+          channel: 'telegram',
+        };
+      }
+      return m;
+    }));
+
+    // 2. Persist into Supabase medication_schedules
+    if (user?.id) {
+      try {
+        const payload = {
+          user_id: user.id,
+          family_member_id: med.family_member_id || (activeProfile?.id !== 'all' ? activeProfile?.id : null),
+          name: med.name,
+          generic_name: med.scientific_name || med.name,
+          medicine_type: med.form || 'Tablet',
+          medicine_purpose: med.category || 'Prescription',
+          timing_dosage: med.slot || '1-0-1',
+          reminder_times: ['08:00', '20:00'],
+          food_relationship: med.food || 'With Food',
+          duration_days: parseInt(med.duration, 10) || 7,
+          status: 'active',
+        };
+
+        await supabase
+          .from('medication_schedules')
+          .insert([payload]);
+      } catch (err) {
+        console.warn('Error syncing medicine to Supabase:', err);
+      }
+    }
+
+    // 3. Open Telegram bot
+    window.open('https://t.me/dosiq_bot', '_blank');
+  };
+
+  // Mark Medicine as Course Completed
+  const handleCompleteMedicine = async (medId) => {
+    setMedications(prev => prev.map(m => {
+      if (m.id === medId) {
+        return {
+          ...m,
+          status: 'completed',
+          completed_at: new Date().toISOString().split('T')[0],
+        };
+      }
+      return m;
+    }));
+
+    if (user?.id) {
+      try {
+        await supabase
+          .from('medication_schedules')
+          .update({ status: 'completed' })
+          .eq('id', medId);
+      } catch (err) {
+        console.warn('Error updating medicine status:', err);
+      }
+    }
+  };
+
+  // Mark Dose Taken or Skipped
+  const handleActionMedicine = (medId, action) => {
+    setMedications(prev => prev.map(m => {
+      if (m.id === medId) {
+        return {
+          ...m,
+          status: action === 'take' ? 'taken' : 'skipped',
+          confirmedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          channel: 'telegram'
+        };
+      }
+      return m;
+    }));
+  };
+
+  const vitalsBiomarkers = {
+    bloodSugar: [
+      { month: 'Apr', fasting: 92, postprandial: 135 },
+      { month: 'May', fasting: 90, postprandial: 130 },
+      { month: 'Jun', fasting: 88, postprandial: 125 },
+      { month: 'Jul', fasting: 94, postprandial: 128 },
+      { month: 'Aug', fasting: 89, postprandial: 122 },
+      { month: 'Sep', fasting: 86, postprandial: 118 },
+    ],
+    hba1c: [
+      { month: 'Apr', value: 5.9 },
+      { month: 'May', value: 5.8 },
+      { month: 'Jun', value: 5.7 },
+      { month: 'Jul', value: 5.6 },
+      { month: 'Aug', value: 5.5 },
+      { month: 'Sep', value: 5.4 },
+    ],
+    bp: [
+      { month: 'Apr', systolic: 128, diastolic: 84 },
+      { month: 'May', systolic: 125, diastolic: 82 },
+      { month: 'Jun', systolic: 122, diastolic: 80 },
+      { month: 'Jul', systolic: 120, diastolic: 79 },
+      { month: 'Aug', systolic: 118, diastolic: 78 },
+      { month: 'Sep', systolic: 117, diastolic: 76 },
+    ],
+  };
+
   // Filtered slices for active profile (supports 'all' for consolidated view)
   const isAllFamily = !activeProfile || activeProfile.id === 'all';
   const selfProfile = profiles.find(p => p.relationship === 'Self') || profiles[0];
@@ -429,8 +590,12 @@ export const DashboardView = () => {
             activeProfile={activeProfile}
             onProfileSelect={setActiveProfile}
             medications={profileMeds}
-            biomarkers={{}}
+            documents={profileDocs}
+            biomarkers={vitalsBiomarkers}
             conflicts={[]}
+            onSyncMedicine={handleSyncMedicine}
+            onCompleteMedicine={handleCompleteMedicine}
+            onActionMedicine={handleActionMedicine}
           />
         )}
 
