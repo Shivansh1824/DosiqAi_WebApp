@@ -237,20 +237,20 @@ export const AuthCard = () => {
           <button
             type="button"
             onClick={() => signInAsDemo({ startOnboarding: true })}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-xs font-black shadow-md shadow-slate-900/15 transition-all duration-150 group cursor-pointer"
+            className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-sm shadow-emerald-600/20 transition-all duration-150 active:scale-[0.99] group cursor-pointer whitespace-nowrap"
           >
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400 group-hover:rotate-12 transition-transform" />
-            <span>⚡ Launch Demo Onboarding &amp; Vault</span>
-            <ArrowRight className="w-3.5 h-3.5 text-emerald-400 group-hover:translate-x-0.5 transition-transform" />
+            <Sparkles className="w-3.5 h-3.5 text-emerald-200 group-hover:rotate-12 transition-transform shrink-0" />
+            <span className="whitespace-nowrap">Launch Demo Onboarding &amp; Vault</span>
+            <ArrowRight className="w-3.5 h-3.5 text-emerald-200 group-hover:translate-x-0.5 transition-transform shrink-0" />
           </button>
-          <div className="flex items-center justify-between px-1 text-[10px] text-slate-500">
-            <span>Experience full setup &amp; Care Loop</span>
+          <div className="flex items-center justify-between gap-1 px-1 pt-0.5 text-[11px] text-slate-500 whitespace-nowrap">
+            <span className="truncate">Full Onboarding</span>
             <button
               type="button"
               onClick={() => signInAsDemo({ startOnboarding: false })}
-              className="text-emerald-700 hover:text-emerald-800 font-bold underline cursor-pointer"
+              className="text-emerald-700 hover:text-emerald-800 font-bold underline underline-offset-2 cursor-pointer whitespace-nowrap shrink-0"
             >
-              or jump straight to Dashboard →
+              Jump straight to Dashboard →
             </button>
           </div>
         </div>

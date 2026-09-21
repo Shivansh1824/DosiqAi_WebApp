@@ -26,7 +26,31 @@ const FAMILY_PRESETS = [
 ];
 
 const DEFAULT_DOSE = { morning: '08:00', afternoon: '14:00', night: '20:00' };
-let _memberId = 0;
+const DEFAULT_SAMPLE_MEMBERS = [
+  {
+    id: 1,
+    name: 'Rajesh Sharma',
+    relationship: 'Father',
+    gender: 'male',
+    age: '64',
+    phone: '',
+    avatar: 'preset-4',
+    telegram_username: '',
+    doseTime: { morning: '08:00', afternoon: '14:00', night: '20:00' },
+  },
+  {
+    id: 2,
+    name: 'Sunita Sharma',
+    relationship: 'Mother',
+    gender: 'female',
+    age: '61',
+    phone: '',
+    avatar: 'preset-5',
+    telegram_username: '',
+    doseTime: { morning: '08:00', afternoon: '14:00', night: '20:00' },
+  },
+];
+let _memberId = 2;
 const newMember = (relationship) => ({
   id: ++_memberId,
   name: '',
@@ -440,7 +464,7 @@ export const OnboardingView = () => {
     doseTime: { ...DEFAULT_DOSE },
   });
 
-  const [familyMembers, setFamilyMembers] = useState([]);
+  const [familyMembers, setFamilyMembers] = useState(DEFAULT_SAMPLE_MEMBERS);
 
   const updatePrimary = useCallback((patch) => setPrimary(p => ({ ...p, ...patch })), []);
 
