@@ -1,9 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, ReferenceArea,
+  ResponsiveContainer,
 } from 'recharts';
 import { TrendingDown, TrendingUp, Minus, Activity, Lightbulb, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
+
+gsap.registerPlugin(useGSAP);
 
 // ─── Custom Tooltip ───────────────────────────────────────────────────────────
 
@@ -45,9 +49,7 @@ const getTrendInsight = (data) => {
 // ─── Lab Trends Section ───────────────────────────────────────────────────────
 
 export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
-  // biomarkers: { [testName]: { unit, label, data: [{month, value, unit, is_abnormal}] } }
-  // documents: Blood Test docs with ai_analysis_result (for count display)
-
+  const containerRef = useRef(null);
   const testNames = useMemo(() => Object.keys(biomarkers).filter(k => biomarkers[k].data?.length > 0), [biomarkers]);
   const [activeTest, setActiveTest] = useState(testNames[0] || null);
 
@@ -80,8 +82,31 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
     return acc + (doc.ai_analysis_result?.report_data?.total_abnormalities || 0);
   }, 0);
 
+  // GSAP animation for biomarker tab switch & charts
+  useGSAP(() => {
+    if (!hasData) return;
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.fromTo(
+        '.gsap-trend-badge',
+        { scale: 0.95, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.25, stagger: 0.05, ease: 'back.out(1.2)' }
+      );
+      gsap.fromTo(
+        '.gsap-trend-chart-card',
+        { opacity: 0.5, y: 8 },
+        { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }
+      );
+      gsap.fromTo(
+        '.gsap-trend-insight',
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out', delay: 0.1 }
+      );
+    });
+  }, { dependencies: [activeTest, hasData], scope: containerRef });
+
   return (
-    <section id="lab-trends-section" className="flex flex-col gap-4">
+    <section ref={containerRef} id="lab-trends-section" className="flex flex-col gap-4">
 
       {/* Section Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
@@ -126,7 +151,7 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
                   key={name}
                   type="button"
                   onClick={() => setActiveTest(name)}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all duration-150 ${
+                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all duration-150 active:scale-95 ${
                     isActive
                       ? 'bg-slate-900 text-white border-slate-700 shadow-sm'
                       : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
@@ -142,7 +167,7 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
           {/* Latest value & trend badge strip */}
           {latestPoint && (
             <div className="flex items-center gap-2 flex-wrap">
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${
+              <div className={`gsap-trend-badge flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${
                 latestPoint.is_abnormal
                   ? 'bg-rose-50 border-rose-200 text-rose-700'
                   : 'bg-emerald-50 border-emerald-200 text-emerald-700'
@@ -155,7 +180,7 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
               </div>
 
               {delta !== null && delta !== 0 && (
-                <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold ${
+                <div className={`gsap-trend-badge flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold ${
                   isImproving ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
                   isWorsening ? 'bg-rose-50 border-rose-200 text-rose-700' :
                   'bg-slate-100 border-slate-200 text-slate-600'
@@ -176,7 +201,7 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
           )}
 
           {/* Chart */}
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          <div className="gsap-trend-chart-card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="p-4">
               <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -219,7 +244,7 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
 
           {/* AI Insight */}
           {insight && (
-            <div className="flex flex-col gap-2 p-4 rounded-2xl bg-violet-50/60 border border-violet-100">
+            <div className="gsap-trend-insight flex flex-col gap-2 p-4 rounded-2xl bg-violet-50/60 border border-violet-100">
               <div className="flex items-center gap-1.5">
                 <Lightbulb className="w-3.5 h-3.5 text-violet-500" />
                 <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wider">AI Clinical Trend Insight</p>

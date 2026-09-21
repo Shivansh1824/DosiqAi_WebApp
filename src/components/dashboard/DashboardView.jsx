@@ -542,9 +542,6 @@ export const DashboardView = () => {
     return biomarkers;
   };
 
-  const vitalsBiomarkers = buildBiomarkersFromDocs(profileDocs);
-  const bloodTestDocs = profileDocs.filter(d => d.type === 'Blood Test' && d.ai_analysis_result?.report_data);
-
   // Filtered slices for active profile (supports 'all' for consolidated view)
   const isAllFamily = !activeProfile || activeProfile.id === 'all';
   const selfProfile = profiles.find(p => p.relationship === 'Self') || profiles[0];
@@ -562,6 +559,9 @@ export const DashboardView = () => {
         const medOwnerId = m.family_member_id || selfProfile?.id;
         return medOwnerId === activeProfile?.id;
       });
+
+  const vitalsBiomarkers = buildBiomarkersFromDocs(profileDocs);
+  const bloodTestDocs = profileDocs.filter(d => d.type === 'Blood Test' && d.ai_analysis_result?.report_data);
 
   // Auto-collapse sidebar when analyzing documents/PDFs, or when manually toggled
   const isSidebarCollapsed = isAnalyzingDoc || Boolean(viewingDoc) || isManualCollapsed;

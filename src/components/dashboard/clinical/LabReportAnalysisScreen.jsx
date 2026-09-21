@@ -2,233 +2,15 @@ import React, { useState, useRef } from 'react';
 import {
   ArrowLeft, FlaskConical, Brain, Activity, Code2,
   Eye, Calendar, User, AlertTriangle, CheckCircle2,
-  TrendingUp, TrendingDown, Minus, Loader2, Lightbulb,
-  Printer, FileText, Stethoscope, Layers, ChevronRight,
+  Loader2, Lightbulb, Printer, FileText, Stethoscope,
+  Layers,
 } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, ReferenceArea,
-} from 'recharts';
+import { BiomarkerPanelCard, MetricRow } from './BiomarkerPanelCard';
+import { TrendChart } from './LabTrendChart';
 
 gsap.registerPlugin(useGSAP);
-
-// ─── Severity config ──────────────────────────────────────────────────────────
-
-const SEVERITY = {
-  normal:     { bg: 'bg-emerald-50',  border: 'border-emerald-200', text: 'text-emerald-700', dot: 'bg-emerald-500',  label: 'Normal'     },
-  borderline: { bg: 'bg-amber-50',    border: 'border-amber-200',   text: 'text-amber-700',   dot: 'bg-amber-500',    label: 'Borderline'  },
-  high:       { bg: 'bg-rose-50',     border: 'border-rose-200',    text: 'text-rose-700',    dot: 'bg-rose-500',     label: 'High'        },
-  low:        { bg: 'bg-sky-50',      border: 'border-sky-200',     text: 'text-sky-700',     dot: 'bg-sky-500',      label: 'Low'         },
-  critical:   { bg: 'bg-red-100',     border: 'border-red-400',     text: 'text-red-800',     dot: 'bg-red-600',      label: 'Critical'    },
-};
-
-const getSeverityConfig = (metric) => {
-  if (metric.severity && SEVERITY[metric.severity]) return SEVERITY[metric.severity];
-  return metric.is_abnormal ? SEVERITY.high : SEVERITY.normal;
-};
-
-// ─── Custom Recharts Tooltip ──────────────────────────────────────────────────
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 shadow-2xl">
-      <p className="text-[11px] text-slate-400 font-medium mb-1.5">{label}</p>
-      {payload.map(p => (
-        <div key={p.dataKey} className="flex items-center gap-2 text-xs">
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
-          <span className="text-slate-300 font-medium">{p.name}:</span>
-          <span className="text-white font-bold tabular-nums">{p.value} {p.payload?.unit || ''}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-// ─── Metric Row (single biomarker) ───────────────────────────────────────────
-
-const MetricRow = ({ metric }) => {
-  const sev = getSeverityConfig(metric);
-  const numVal = metric.numeric_value ?? parseFloat(metric.value);
-  const displayVal = isNaN(numVal) ? metric.value : numVal;
-
-  return (
-    <div className={`flex items-center justify-between gap-3 p-3.5 rounded-xl border ${sev.bg} ${sev.border} transition-all`}>
-      <div className="flex items-center gap-2.5 flex-1 min-w-0">
-        <span className={`w-2 h-2 rounded-full shrink-0 ${sev.dot}`} />
-        <div className="min-w-0">
-          <p className="text-xs font-black text-slate-900 truncate">{metric.test_name}</p>
-          {metric.method && (
-            <p className="text-[10px] text-slate-400 font-medium">{metric.method}</p>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-4 shrink-0">
-        {/* Value */}
-        <div className="text-right">
-          <p className={`text-sm font-black tabular-nums ${sev.text}`}>
-            {displayVal} <span className="text-[10px] font-bold text-slate-400">{metric.unit}</span>
-          </p>
-        </div>
-
-        {/* Reference Range */}
-        <div className="text-right hidden sm:block">
-          <p className="text-[10px] text-slate-400 font-medium">Reference</p>
-          <p className="text-[11px] text-slate-600 font-bold whitespace-nowrap">{metric.reference_range || '—'}</p>
-        </div>
-
-        {/* Severity Badge */}
-        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${sev.bg} ${sev.border} ${sev.text} shrink-0`}>
-          {sev.label}
-        </span>
-      </div>
-    </div>
-  );
-};
-
-// ─── Biomarker Panel Card ─────────────────────────────────────────────────────
-
-const BiomarkerPanelCard = ({ panel }) => {
-  const [expanded, setExpanded] = useState(true);
-  const abnormalCount = panel.metrics.filter(m => m.is_abnormal).length;
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50/60 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center">
-            <FlaskConical className="w-4 h-4 text-sky-600" />
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-black text-slate-900">{panel.category_name}</p>
-            <p className="text-[10px] text-slate-400 font-medium">{panel.metrics.length} parameters tested</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {abnormalCount > 0 && (
-            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700">
-              {abnormalCount} Abnormal
-            </span>
-          )}
-          {abnormalCount === 0 && (
-            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
-              All Normal
-            </span>
-          )}
-          <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${expanded ? 'rotate-90' : ''}`} />
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="px-5 pb-4 flex flex-col gap-2">
-          {panel.metrics.map((metric, idx) => (
-            <MetricRow key={idx} metric={metric} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Trend Chart for a single metric ─────────────────────────────────────────
-
-const TrendChart = ({ testName, trendData, unit }) => {
-  if (!trendData || trendData.length < 1) return null;
-
-  const values = trendData.map(d => d.value).filter(v => !isNaN(v));
-  const minVal = Math.min(...values);
-  const maxVal = Math.max(...values);
-  const padding = (maxVal - minVal) * 0.2 || 5;
-
-  const last = trendData[trendData.length - 1];
-  const prev = trendData[trendData.length - 2];
-  const delta = prev ? (last.value - prev.value) : null;
-  const isImproving = delta !== null && !last.is_abnormal && delta !== 0;
-  const isWorsening = delta !== null && last.is_abnormal && delta > 0;
-
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-5 flex flex-col gap-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <p className="text-sm font-black text-slate-900">{testName}</p>
-          <p className="text-[10px] text-slate-400 font-medium">{trendData.length} readings over time</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Latest value */}
-          <span className={`text-xs font-black px-2.5 py-1 rounded-full border ${
-            last.is_abnormal
-              ? 'bg-rose-50 border-rose-200 text-rose-700'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-          }`}>
-            {last.value} {unit}
-          </span>
-          {/* Trend direction */}
-          {delta !== null && delta !== 0 && (
-            <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full ${
-              isImproving ? 'bg-emerald-50 text-emerald-600' :
-              isWorsening ? 'bg-rose-50 text-rose-600' :
-              'bg-slate-100 text-slate-500'
-            }`}>
-              {delta < 0 ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
-              {Math.abs(delta).toFixed(1)}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {trendData.length > 1 ? (
-        <ResponsiveContainer width="100%" height={140}>
-          <LineChart data={trendData} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <XAxis
-              dataKey="date"
-              tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
-              axisLine={false}
-              tickLine={false}
-              domain={[Math.max(0, minVal - padding), maxVal + padding]}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e2e8f0', strokeWidth: 1 }} />
-            <Line
-              type="monotone"
-              dataKey="value"
-              name={testName}
-              stroke="#0ea5e9"
-              strokeWidth={2.5}
-              dot={({ cx, cy, payload }) => (
-                <circle
-                  key={`dot-${cx}-${cy}`}
-                  cx={cx} cy={cy} r={4}
-                  fill={payload.is_abnormal ? '#ef4444' : '#0ea5e9'}
-                  stroke="#fff"
-                  strokeWidth={2}
-                />
-              )}
-              activeDot={{ r: 6, fill: '#0ea5e9', strokeWidth: 2, stroke: '#fff' }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      ) : (
-        <div className="flex items-center justify-center h-20 bg-slate-50 rounded-xl">
-          <p className="text-xs text-slate-400 font-medium">Upload another report to see trend</p>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, allReportDocs = [] }) => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -270,16 +52,76 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
     });
   });
 
-  // GSAP entrance
+  // ─── GSAP Fluid Orchestration ─────────────────────────────────────────────
   useGSAP(() => {
     if (isExtracting || !extraction) return;
+
     const mm = gsap.matchMedia();
     mm.add('(prefers-reduced-motion: no-preference)', () => {
-      gsap.fromTo('.gsap-report-nav', { y: -12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: 'power2.out' });
-      gsap.fromTo('.gsap-report-hero', { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: 'power2.out', delay: 0.05 });
-      gsap.fromTo('.gsap-report-tab', { y: 12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: 'power2.out', delay: 0.1 });
+      // Top nav entrance
+      gsap.fromTo(
+        '.gsap-report-nav',
+        { y: -16, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.35, ease: 'power2.out' }
+      );
+
+      // Hero banner
+      gsap.fromTo(
+        '.gsap-report-hero',
+        { y: 16, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.4, ease: 'power2.out', delay: 0.05 }
+      );
+
+      // Main active tab container
+      gsap.fromTo(
+        '.gsap-report-tab',
+        { y: 12, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.35, ease: 'power2.out', delay: 0.1 }
+      );
+
+      // Tab-specific micro-animations
+      if (activeTab === 'overview') {
+        gsap.fromTo(
+          '.gsap-kpi-card',
+          { scale: 0.94, opacity: 0, y: 12 },
+          { scale: 1, opacity: 1, y: 0, duration: 0.35, stagger: 0.05, ease: 'back.out(1.4)', delay: 0.15 }
+        );
+        gsap.fromTo(
+          '.gsap-summary-card',
+          { y: 14, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.35, stagger: 0.08, ease: 'power2.out', delay: 0.22 }
+        );
+        gsap.fromTo(
+          '.gsap-metric-row',
+          { x: -10, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.25, stagger: 0.04, ease: 'power1.out', delay: 0.28 }
+        );
+      } else if (activeTab === 'panels') {
+        gsap.fromTo(
+          '.gsap-panel-card',
+          { y: 18, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.35, stagger: 0.07, ease: 'power2.out', delay: 0.12 }
+        );
+        gsap.fromTo(
+          '.gsap-metric-row',
+          { x: -8, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.25, stagger: 0.025, ease: 'power1.out', delay: 0.22 }
+        );
+      } else if (activeTab === 'trends') {
+        gsap.fromTo(
+          '.gsap-trend-card',
+          { scale: 0.96, y: 16, opacity: 0 },
+          { scale: 1, y: 0, opacity: 1, duration: 0.35, stagger: 0.06, ease: 'power2.out', delay: 0.12 }
+        );
+      } else if (activeTab === 'ai') {
+        gsap.fromTo(
+          '.gsap-ai-card',
+          { y: 14, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.35, stagger: 0.06, ease: 'power2.out', delay: 0.12 }
+        );
+      }
     });
-  }, { dependencies: [activeTab, isExtracting], scope: containerRef });
+  }, { dependencies: [activeTab, isExtracting, Boolean(extraction)], scope: containerRef });
 
   // ─── Tab: Overview ────────────────────────────────────────────────────────
 
@@ -287,24 +129,24 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
     <div className="flex flex-col gap-5">
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-1">
+        <div className="gsap-kpi-card bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-1 transition-all hover:shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Tests</span>
           <span className="text-2xl font-black text-slate-900">{totalTests}</span>
           <span className="text-[11px] text-slate-500">Parameters analyzed</span>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-1">
+        <div className="gsap-kpi-card bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-1 transition-all hover:shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Abnormal</span>
           <span className={`text-2xl font-black ${totalAbnormal > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
             {totalAbnormal}
           </span>
           <span className="text-[11px] text-slate-500">Out of range</span>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-1">
+        <div className="gsap-kpi-card bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-1 transition-all hover:shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">AI Confidence</span>
           <span className="text-2xl font-black text-teal-700">{confidencePct}%</span>
           <span className="text-[11px] text-slate-500">Extraction accuracy</span>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-1">
+        <div className="gsap-kpi-card bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-1 transition-all hover:shadow-md">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Panels Tested</span>
           <span className="text-2xl font-black text-violet-700">{panels.length}</span>
           <span className="text-[11px] text-slate-500">Clinical categories</span>
@@ -312,7 +154,7 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
       </div>
 
       {/* AI Clinical Summary */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col gap-3">
+      <div className="gsap-summary-card bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col gap-3">
         <div className="flex items-center gap-2 text-emerald-700">
           <Brain className="w-4 h-4" />
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">Dosiq AI — Clinical Summary</h3>
@@ -324,7 +166,7 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
 
       {/* Patient Narrative */}
       {reportData?.clinical_narrative && (
-        <div className="bg-violet-50 rounded-2xl p-5 border border-violet-100 flex flex-col gap-3">
+        <div className="gsap-summary-card bg-violet-50 rounded-2xl p-5 border border-violet-100 flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <Lightbulb className="w-4 h-4 text-violet-500" />
             <h3 className="text-xs font-black uppercase tracking-wider text-violet-700">For You & Your Family</h3>
@@ -335,7 +177,7 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
 
       {/* Abnormal highlights strip */}
       {totalAbnormal > 0 && (
-        <div className="bg-white rounded-2xl p-5 border border-rose-100 shadow-sm flex flex-col gap-3">
+        <div className="gsap-summary-card bg-white rounded-2xl p-5 border border-rose-100 shadow-sm flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-500" />
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">Abnormal Findings Requiring Attention</h3>
@@ -350,7 +192,7 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
 
       {/* All-normal message */}
       {totalAbnormal === 0 && totalTests > 0 && (
-        <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 flex items-center gap-3">
+        <div className="gsap-summary-card bg-emerald-50 rounded-2xl p-5 border border-emerald-100 flex items-center gap-3">
           <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
           <div>
             <p className="text-sm font-black text-emerald-900">All Parameters Within Normal Limits</p>
@@ -423,7 +265,7 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
   const renderAI = () => (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-2">
+        <div className="gsap-ai-card bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-2 transition-all hover:shadow-md">
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Analysis Confidence</span>
           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
             <div
@@ -433,14 +275,14 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
           </div>
           <span className="text-lg font-black text-emerald-700">{confidencePct}%</span>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center gap-3">
+        <div className="gsap-ai-card bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center gap-3 transition-all hover:shadow-md">
           <Eye className="w-5 h-5 text-sky-500 shrink-0" />
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Scan Clarity</p>
             <p className="text-sm font-black text-slate-900 capitalize">{meta?.scan_clarity || 'Clear'}</p>
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center gap-3">
+        <div className="gsap-ai-card bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center gap-3 transition-all hover:shadow-md">
           <FlaskConical className="w-5 h-5 text-violet-500 shrink-0" />
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lab Identified</p>
@@ -449,7 +291,7 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col gap-4">
+      <div className="gsap-ai-card bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col gap-4">
         <div className="flex items-center gap-2">
           <Brain className="w-5 h-5 text-emerald-600" />
           <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">Dosiq AI Clinical Reasoning Trace</h3>
@@ -468,7 +310,7 @@ Abnormalities Found: ${totalAbnormal}`}
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between gap-4 flex-wrap">
+      <div className="gsap-ai-card bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h4 className="text-sm font-black text-slate-900">Developer & Clinical JSON Audit</h4>
           <p className="text-xs text-slate-500 mt-0.5">View the full structured payload extracted by the AI pipeline.</p>
@@ -640,7 +482,7 @@ Abnormalities Found: ${totalAbnormal}`}
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all shrink-0 ${
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all shrink-0 active:scale-95 ${
                     activeTab === tab.key
                       ? 'bg-sky-600 text-white shadow-sm shadow-sky-600/20'
                       : 'text-slate-600 hover:bg-slate-100'
