@@ -324,7 +324,21 @@ export const UploadDocumentModal = ({
       console.error('Error in handleConfirmUpload:', err);
       setUploading(false);
       setChecking(false);
-      setCheckError(err.message || 'Something went wrong. Please try again.');
+      let msg = err.message || 'Something went wrong. Please try again.';
+      try {
+        const jsonMatch = msg.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed?.error?.message) {
+            if (parsed.error.code === 429 || parsed.error.message.includes('quota')) {
+              msg = 'Gemini AI rate limit reached. All model fallbacks were attempted. Please retry in a few moments.';
+            } else {
+              msg = parsed.error.message;
+            }
+          }
+        }
+      } catch {}
+      setCheckError(msg);
     }
   };
 

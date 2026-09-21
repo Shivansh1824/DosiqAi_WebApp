@@ -159,43 +159,61 @@ export default async function handler(req, res) {
     const buffer = await fileData.arrayBuffer();
     const base64Data = Buffer.from(buffer).toString('base64');
 
-    // 3. Call Gemini 3.8 Flash with automatic fallback to Gemini 3.6 Flash on high demand
-    const candidateModels = ['gemini-3.8-flash', 'gemini-3.6-flash'];
+    // 3. Multi-model & multi-key fallback cascade to ensure 100% uptime and bypass 20 RPD free-tier caps
+    const candidateKeys = [
+      process.env.GEMINI_API_KEY_REPORT,
+      process.env.GEMINI_API_KEY_COMMON,
+      process.env.GEMINI_API_KEY_PRESCRIPTION,
+    ].filter(Boolean);
+
+    const candidateModels = [
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+    ];
+
     let response;
     let lastErr;
 
-    for (const modelName of candidateModels) {
-      try {
-        response = await ai.models.generateContent({
-          model: modelName,
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: REPORT_EXTRACTION_PROMPT },
-                {
-                  inlineData: {
-                    data: base64Data,
-                    mimeType: mimeType
+    keyLoop:
+    for (const apiKey of candidateKeys) {
+      const aiClient = new GoogleGenAI({ apiKey });
+      for (const modelName of candidateModels) {
+        try {
+          response = await aiClient.models.generateContent({
+            model: modelName,
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: REPORT_EXTRACTION_PROMPT },
+                  {
+                    inlineData: {
+                      data: base64Data,
+                      mimeType: mimeType
+                    }
                   }
-                }
-              ]
+                ]
+              }
+            ],
+            config: {
+              responseMimeType: 'application/json',
+              temperature: 0.1, // Precision biomarker extraction
             }
-          ],
-          config: {
-            responseMimeType: 'application/json',
-            temperature: 0.1, // Precision biomarker extraction
+          });
+          if (response?.text) break keyLoop;
+        } catch (err) {
+          lastErr = err;
+          const isRetryable = err.status === 503 || err.status === 429 || err.message?.includes('high demand') || err.message?.includes('quota');
+          if (isRetryable) {
+            console.warn(`[Gemini Extract Report] ${modelName} hit limit (${err.status || 429}). Trying next candidate...`);
+            continue;
           }
-        });
-        break;
-      } catch (err) {
-        lastErr = err;
-        const isRetryable = err.status === 503 || err.status === 429 || err.message?.includes('high demand');
-        if (isRetryable) {
-          console.warn(`[Gemini Extract Report] ${modelName} hit high demand (${err.status || 503}). Falling back...`);
-          continue;
+          throw err;
         }
-        throw err;
       }
     }
 

@@ -88,43 +88,61 @@ You must return a strict, clean JSON object with this exact schema (no markdown 
   ]
 }`;
 
-    // 4. Call Gemini 3.8 Flash with automatic fallback to Gemini 3.6 Flash if Google experiences high demand (503/429)
-    const candidateModels = ['gemini-3.8-flash', 'gemini-3.6-flash'];
+    // 4. Multi-model & multi-key fallback cascade to ensure 100% uptime and bypass 20 RPD free-tier caps
+    const candidateKeys = [
+      process.env.GEMINI_API_KEY_REPORT,
+      process.env.GEMINI_API_KEY_COMMON,
+      process.env.GEMINI_API_KEY_PRESCRIPTION,
+    ].filter(Boolean);
+
+    const candidateModels = [
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
+    ];
+
     let response;
     let lastErr;
 
-    for (const modelName of candidateModels) {
-      try {
-        response = await ai.models.generateContent({
-          model: modelName,
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                { text: SYSTEM_PROMPT },
-                {
-                  inlineData: {
-                    data: base64Data,
-                    mimeType: mimeType
+    keyLoop:
+    for (const apiKey of candidateKeys) {
+      const aiClient = new GoogleGenAI({ apiKey });
+      for (const modelName of candidateModels) {
+        try {
+          response = await aiClient.models.generateContent({
+            model: modelName,
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: SYSTEM_PROMPT },
+                  {
+                    inlineData: {
+                      data: base64Data,
+                      mimeType: mimeType
+                    }
                   }
-                }
-              ]
+                ]
+              }
+            ],
+            config: {
+              responseMimeType: 'application/json',
+              temperature: 0.1, // Low temperature for high precision classification
             }
-          ],
-          config: {
-            responseMimeType: 'application/json',
-            temperature: 0.1, // Low temperature for high precision classification
+          });
+          if (response?.text) break keyLoop;
+        } catch (err) {
+          lastErr = err;
+          const isRetryable = err.status === 503 || err.status === 429 || err.message?.includes('high demand') || err.message?.includes('quota');
+          if (isRetryable) {
+            console.warn(`[Gemini Check Report] ${modelName} hit limit (${err.status || 429}). Trying next candidate...`);
+            continue;
           }
-        });
-        break; // Successfully generated content
-      } catch (err) {
-        lastErr = err;
-        const isRetryable = err.status === 503 || err.status === 429 || err.message?.includes('high demand');
-        if (isRetryable) {
-          console.warn(`[Gemini] ${modelName} hit high demand (${err.status || 503}). Falling back to next model...`);
-          continue;
+          throw err;
         }
-        throw err;
       }
     }
 
