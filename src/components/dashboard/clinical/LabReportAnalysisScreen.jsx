@@ -49,16 +49,26 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
     const { displayDate } = resolveClinicalReportDate(d);
     const hasDuplicateDate = sortedDocs.some((other, oi) => oi !== docIdx && resolveClinicalReportDate(other).displayDate === displayDate);
     const shortLab = d.clinic ? d.clinic.split(' ')[0] : (d.doctor ? d.doctor.split(' ')[0] : '');
-    const dateLabel = hasDuplicateDate ? `${displayDate} (${shortLab || `Rep ${docIdx + 1}`})` : displayDate;
+    const sameLabCount = sortedDocs.filter(other => resolveClinicalReportDate(other).displayDate === displayDate && (other.clinic ? other.clinic.split(' ')[0] : (other.doctor ? other.doctor.split(' ')[0] : '')) === shortLab).length;
+    const dateLabel = hasDuplicateDate
+      ? (sameLabCount > 1
+          ? `${displayDate} (${shortLab ? `${shortLab} #${docIdx + 1}` : `Rep ${docIdx + 1}`})`
+          : `${displayDate} (${shortLab || `Rep ${docIdx + 1}`})`)
+      : displayDate;
+
+    const recordedInDoc = new Set();
 
     (rd?.grouped_metrics || []).forEach(panel => {
       panel.metrics.forEach(metric => {
         const rawName = metric.test_name;
         const key = normalizeBiomarkerName(rawName) || rawName;
 
-        if (!trendMap[key]) trendMap[key] = { unit: metric.unit, data: [] };
+        if (recordedInDoc.has(key)) return;
+
         const numVal = metric.numeric_value ?? parseFloat(metric.value);
         if (!isNaN(numVal)) {
+          recordedInDoc.add(key);
+          if (!trendMap[key]) trendMap[key] = { unit: metric.unit, data: [] };
           trendMap[key].data.push({
             date: dateLabel,
             value: numVal,

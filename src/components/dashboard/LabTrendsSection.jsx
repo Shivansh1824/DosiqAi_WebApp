@@ -34,15 +34,21 @@ const getTrendInsight = (data) => {
   const first = data[0];
   const last = data[data.length - 1];
   const delta = last.value - first.value;
-  const dirText = delta < 0 ? 'decreased' : 'increased';
   const abs = Math.abs(delta).toFixed(1);
+  const isStable = Math.abs(delta) < 0.001;
+  const dirText = delta < 0 ? 'decreased' : 'increased';
   const isGood = delta <= 0 && !last.is_abnormal;
   const isWorsening = last.is_abnormal && delta > 0;
 
+  const text = isStable
+    ? `Value has remained steady at ${last.value} ${last.unit || ''} across ${data.length} reports.`
+    : `${last.unit ? `Value has ${dirText} by ${abs} ${last.unit}` : `${dirText} by ${abs}`} over ${data.length} readings.`;
+
   return {
-    text: `${last.unit ? `Value has ${dirText} by ${abs} ${last.unit}` : `${dirText} by ${abs}`} over ${data.length} readings.`,
+    text,
     positive: isGood,
     worsening: isWorsening,
+    stable: isStable,
   };
 };
 
@@ -269,15 +275,19 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
                 <span>Latest: {latestPoint.value} {unit}</span>
               </div>
 
-              {delta !== null && delta !== 0 && (
+              {delta !== null && (
                 <div className={`gsap-trend-badge flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold ${
+                  Math.abs(delta) < 0.001 ? 'bg-slate-100 border-slate-200 text-slate-700' :
                   isImproving ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
                   isWorsening ? 'bg-rose-50 border-rose-200 text-rose-700' :
                   'bg-slate-100 border-slate-200 text-slate-600'
                 }`}>
-                  {delta < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : delta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+                  {Math.abs(delta) < 0.001 ? <Minus className="w-3.5 h-3.5 text-slate-500" /> :
+                   delta < 0 ? <TrendingDown className="w-3.5 h-3.5" /> :
+                   <TrendingUp className="w-3.5 h-3.5" />}
                   <span>
-                    {isImproving ? 'Improving' : isWorsening ? 'Worsening' : 'Stable'} ({delta > 0 ? '+' : ''}{delta.toFixed(1)} {unit})
+                    {Math.abs(delta) < 0.001 ? `Stable (0.0 ${unit})` :
+                     `${isImproving ? 'Improving' : isWorsening ? 'Worsening' : 'Changed'} (${delta > 0 ? '+' : ''}${delta.toFixed(1)} ${unit})`}
                   </span>
                 </div>
               )}
@@ -310,11 +320,13 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
           <div className="gsap-trend-chart-card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="p-4">
               <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <LineChart data={data} margin={{ top: 15, right: 30, left: -10, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis
                     dataKey="month"
-                    tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 600 }}
+                    interval={0}
+                    padding={{ left: 50, right: 50 }}
+                    tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }}
                     axisLine={false}
                     tickLine={false}
                   />
@@ -356,13 +368,14 @@ export const LabTrendsSection = ({ biomarkers = {}, documents = [] }) => {
                 <p className="text-[10px] font-bold text-violet-600 uppercase tracking-wider">AI Clinical Trend Insight</p>
               </div>
               <div className="flex items-start gap-2">
-                <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${insight.worsening ? 'bg-rose-500' : insight.positive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${insight.worsening ? 'bg-rose-500' : insight.positive ? 'bg-emerald-500' : insight.stable ? 'bg-slate-400' : 'bg-amber-500'}`} />
                 <p className="text-xs font-medium text-slate-700 leading-snug">
                   <span className="font-bold text-slate-900">{activeTest}: </span>
                   {insight.text}{' '}
-                  <span className={`font-bold ${insight.worsening ? 'text-rose-600' : insight.positive ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  <span className={`font-bold ${insight.worsening ? 'text-rose-600' : insight.positive ? 'text-emerald-600' : insight.stable ? 'text-slate-600' : 'text-amber-600'}`}>
                     {insight.worsening ? '— Trending upward while abnormal. Monitor closely and consult your doctor.' :
                      insight.positive ? '— Moving in the right direction. Keep it up! ✓' :
+                     insight.stable ? '— Values are steady across both checkups.' :
                      '— Monitor closely.'}
                   </span>
                 </p>

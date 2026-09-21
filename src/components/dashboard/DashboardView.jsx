@@ -526,9 +526,15 @@ export const DashboardView = () => {
       // Disambiguate if multiple reports share the exact same display date
       const hasDuplicateDate = bloodTestDocs.some((other, oi) => oi !== docIdx && resolveClinicalReportDate(other).displayDate === displayDate);
       const shortLab = doc.clinic ? doc.clinic.split(' ')[0] : (doc.doctor ? doc.doctor.split(' ')[0] : '');
+      const sameLabCount = bloodTestDocs.filter(other => resolveClinicalReportDate(other).displayDate === displayDate && (other.clinic ? other.clinic.split(' ')[0] : (other.doctor ? other.doctor.split(' ')[0] : '')) === shortLab).length;
       const dateLabel = hasDuplicateDate
-        ? `${displayDate} (${shortLab || `Rep ${docIdx + 1}`})`
+        ? (sameLabCount > 1
+            ? `${displayDate} (${shortLab ? `${shortLab} #${docIdx + 1}` : `Rep ${docIdx + 1}`})`
+            : `${displayDate} (${shortLab || `Rep ${docIdx + 1}`})`)
         : displayDate;
+
+      // Ensure each document contributes at most 1 data point per biomarker
+      const recordedInDoc = new Set();
 
       panels.forEach(panel => {
         panel.metrics.forEach(metric => {
@@ -536,16 +542,19 @@ export const DashboardView = () => {
           const canonical = normalizeBiomarkerName(rawName);
           const key = canonical || rawName;
 
-          if (!biomarkers[key]) {
-            biomarkers[key] = {
-              unit: metric.unit,
-              label: key,
-              rawName,
-              data: []
-            };
-          }
+          if (recordedInDoc.has(key)) return;
+
           const numVal = metric.numeric_value ?? parseFloat(metric.value);
           if (!isNaN(numVal)) {
+            recordedInDoc.add(key);
+            if (!biomarkers[key]) {
+              biomarkers[key] = {
+                unit: metric.unit,
+                label: key,
+                rawName,
+                data: []
+              };
+            }
             biomarkers[key].data.push({
               month: dateLabel,
               value: numVal,
