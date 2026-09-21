@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   X, Upload, FileText, FlaskConical, ChevronLeft,
   UserPlus, CheckCircle2, Zap, ArrowRight,
   Pill, Activity, Check, Loader2, Sparkles,
 } from 'lucide-react';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import { FamilyMemberModal } from '../onboarding/FamilyMemberModal';
 import { QrCodeSyncCard } from './QrCodeSyncCard';
 import { DocumentPhotoGallery } from './DocumentPhotoGallery';
@@ -11,6 +13,8 @@ import { ImageZoomModal } from './ImageZoomModal';
 import { generateSyncSessionId, processDocumentFilesForVault, checkDocumentValidity, extractDocumentData } from '../../lib/documentService';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
+
+gsap.registerPlugin(useGSAP);
 
 const PRESET_EMOJIS = { 'preset-1': '👨‍⚕️', 'preset-2': '👩‍⚕️', 'preset-3': '🧑‍💼', 'preset-4': '👴', 'preset-5': '👩', 'preset-6': '🧑', 'preset-7': '👦', 'preset-8': '👧' };
 const RELATIONSHIP_GRADIENTS = {
@@ -56,11 +60,56 @@ export const UploadDocumentModal = ({
   // FamilyMemberModal state for inline member addition
   const [familyModalOpen, setFamilyModalOpen] = useState(false);
 
+  // GSAP Animation Refs
+  const modalRef = useRef(null);
+  const backdropRef = useRef(null);
+  const modalBodyRef = useRef(null);
+  const overlayCardRef = useRef(null);
+
+  // GSAP Modal Entrance Animation
+  useGSAP(() => {
+    if (!open) return;
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+    if (backdropRef.current) {
+      tl.fromTo(backdropRef.current, { opacity: 0 }, { opacity: 1, duration: 0.22 });
+    }
+    if (modalRef.current) {
+      tl.fromTo(modalRef.current,
+        { scale: 0.94, y: 22, opacity: 0 },
+        { scale: 1, y: 0, opacity: 1, duration: 0.34, ease: 'back.out(1.15)' },
+        '-=0.12'
+      );
+    }
+  }, { dependencies: [open] });
+
+  // GSAP Step Transition Stagger Animation
+  useGSAP(() => {
+    if (!open || !modalBodyRef.current) return;
+    gsap.fromTo('.gsap-step-item',
+      { opacity: 0, y: 16, scale: 0.98 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: 'power2.out', stagger: 0.035 }
+    );
+  }, { dependencies: [step, open], scope: modalBodyRef });
+
+  // GSAP Scanning Overlay Entrance
+  useGSAP(() => {
+    if (!overlayCardRef.current || (!checking && !uploading && !extracting)) return;
+    gsap.fromTo(overlayCardRef.current,
+      { scale: 0.92, y: 16, opacity: 0 },
+      { scale: 1, y: 0, opacity: 1, duration: 0.3, ease: 'back.out(1.2)' }
+    );
+  }, { dependencies: [checking, uploading, extracting] });
+
   // Initialize modal state on open (stable sessionId)
   useEffect(() => {
     if (open) {
-      setSelectedMember(prev => prev || activeProfile || profiles[0] || null);
-      setStep(1);
+      const isSpecificMember = Boolean(activeProfile && activeProfile.id && activeProfile.id !== 'all');
+      const targetMember = isSpecificMember
+        ? activeProfile
+        : (profiles.find(p => p.relationship === 'Self') || profiles[0] || null);
+
+      setSelectedMember(targetMember);
+      setStep(isSpecificMember ? 2 : 1);
       setFiles([]);
       setZoomImage(null);
       setDocType(null);
@@ -76,7 +125,7 @@ export const UploadDocumentModal = ({
       setSessionId(generateSyncSessionId());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, activeProfile]);
 
   // Handle local file drop
   const handleDrop = (e) => {
@@ -369,6 +418,7 @@ export const UploadDocumentModal = ({
     <>
       {/* Modal Backdrop */}
       <div
+        ref={backdropRef}
         className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
@@ -380,7 +430,8 @@ export const UploadDocumentModal = ({
         aria-modal="true"
       >
         <div
-          className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto animate-in zoom-in-95 duration-200"
+          ref={modalRef}
+          className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
@@ -401,9 +452,21 @@ export const UploadDocumentModal = ({
                   Upload Clinical Document
                 </h2>
                 <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400 font-medium">
-                  <span className={step === 1 ? 'text-emerald-600 font-bold' : ''}>1. Member</span>
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className={`hover:text-emerald-600 transition-colors ${step === 1 ? 'text-emerald-600 font-bold' : ''}`}
+                  >
+                    1. Member {selectedMember ? `(${selectedMember.name?.split(' ')[0] || selectedMember.relationship})` : ''}
+                  </button>
                   <span>•</span>
-                  <span className={step === 2 ? 'text-emerald-600 font-bold' : ''}>2. Category</span>
+                  <button
+                    type="button"
+                    onClick={() => selectedMember && setStep(2)}
+                    className={`hover:text-emerald-600 transition-colors ${step === 2 ? 'text-emerald-600 font-bold' : ''}`}
+                  >
+                    2. Category
+                  </button>
                   <span>•</span>
                   <span className={step === 3 ? 'text-emerald-600 font-bold' : ''}>3. Upload &amp; QR</span>
                 </div>
@@ -421,7 +484,7 @@ export const UploadDocumentModal = ({
           </div>
 
           {/* Modal Body */}
-          <div className="p-6">
+          <div ref={modalBodyRef} className="p-6">
             
             {/* ── STEP 1: CHOOSE FAMILY MEMBER ── */}
             {step === 1 && (
@@ -447,7 +510,7 @@ export const UploadDocumentModal = ({
                           setSelectedMember(p);
                           setStep(2);
                         }}
-                        className={`flex items-center gap-3.5 p-3.5 rounded-2xl border-2 cursor-pointer transition-all duration-150 ${
+                        className={`gsap-step-item flex items-center gap-3.5 p-3.5 rounded-2xl border-2 cursor-pointer transition-all duration-150 ${
                           isSelected
                             ? 'border-emerald-500 bg-emerald-50/50 shadow-md ring-2 ring-emerald-500/20'
                             : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70'
@@ -487,7 +550,7 @@ export const UploadDocumentModal = ({
                   <button
                     type="button"
                     onClick={() => setFamilyModalOpen(true)}
-                    className="flex items-center justify-center gap-2.5 p-3.5 rounded-2xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50/40 text-emerald-700 transition-all font-bold text-xs"
+                    className="gsap-step-item flex items-center justify-center gap-2.5 p-3.5 rounded-2xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 hover:bg-emerald-50/40 text-emerald-700 transition-all font-bold text-xs"
                   >
                     <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
                       <UserPlus className="w-4 h-4" />
@@ -514,16 +577,27 @@ export const UploadDocumentModal = ({
             {/* ── STEP 2: SIDE-BY-SIDE CATEGORY SELECTION ── */}
             {step === 2 && (
               <div className="flex flex-col gap-5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-black text-slate-900">Select Document Category</h3>
                     <p className="text-xs text-slate-500 mt-1">
                       Choose whether you are uploading a diagnostic lab test or a doctor prescription for <span className="font-bold text-slate-800">{selectedMember?.name || selectedMember?.relationship}</span>.
                     </p>
                   </div>
-                  <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full shrink-0">
-                    For: {selectedMember?.name?.split(' ')[0] || selectedMember?.relationship}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      For: {selectedMember?.name?.split(' ')[0] || selectedMember?.relationship}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      className="text-xs font-bold text-slate-500 hover:text-emerald-700 underline px-1 py-1 transition-colors"
+                      title="Switch to another family member"
+                    >
+                      Change
+                    </button>
+                  </div>
                 </div>
 
                 {/* Side-by-Side Left & Right Options */}
@@ -535,7 +609,7 @@ export const UploadDocumentModal = ({
                       setDocType('Blood Test');
                       setStep(3);
                     }}
-                    className="group relative cursor-pointer flex flex-col justify-between p-5 rounded-3xl border-2 border-slate-200 hover:border-sky-500 hover:bg-sky-50/20 hover:shadow-xl hover:shadow-sky-500/10 transition-all duration-200"
+                    className="gsap-step-item group relative cursor-pointer flex flex-col justify-between p-5 rounded-3xl border-2 border-slate-200 hover:border-sky-500 hover:bg-sky-50/20 hover:shadow-xl hover:shadow-sky-500/10 transition-all duration-200"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-4">
@@ -578,7 +652,7 @@ export const UploadDocumentModal = ({
                       setDocType('Prescription');
                       setStep(3);
                     }}
-                    className="group relative cursor-pointer flex flex-col justify-between p-5 rounded-3xl border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/20 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-200"
+                    className="gsap-step-item group relative cursor-pointer flex flex-col justify-between p-5 rounded-3xl border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/20 hover:shadow-xl hover:shadow-emerald-500/10 transition-all duration-200"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-4">
@@ -623,7 +697,7 @@ export const UploadDocumentModal = ({
             {step === 3 && (
               <div className="flex flex-col gap-4">
                 {/* Dossier & Category Banner */}
-                <div className="flex items-center justify-between bg-slate-50 rounded-2xl p-3 border border-slate-200/80">
+                <div className="gsap-step-item flex items-center justify-between bg-slate-50 rounded-2xl p-3 border border-slate-200/80">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                     <span className="text-xs font-bold text-slate-800">
@@ -640,7 +714,7 @@ export const UploadDocumentModal = ({
                 </div>
 
                 {/* 1. Desktop File Dropzone */}
-                <div className="flex flex-col gap-2.5">
+                <div className="gsap-step-item flex flex-col gap-2.5">
                   {isPdfLocked ? (
                     // PDF locked state
                     <div className="flex items-center gap-3 h-28 px-5 rounded-2xl border-2 border-sky-300 bg-sky-50/60">
@@ -851,7 +925,7 @@ export const UploadDocumentModal = ({
       {/* AI VERIFICATION OVERLAY */}
       {(checking || uploading || extracting) && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 backdrop-blur-md">
-          <div className="relative w-[340px] sm:w-[400px] bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 p-8 flex flex-col items-center gap-6">
+          <div ref={overlayCardRef} className="relative w-[340px] sm:w-[400px] bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 p-8 flex flex-col items-center gap-6">
             {/* Animated Gemini Pulse Ring */}
             <div className="relative flex items-center justify-center">
               <div className="absolute w-24 h-24 rounded-full bg-gradient-to-tr from-violet-500/30 to-sky-400/20 animate-ping" />
