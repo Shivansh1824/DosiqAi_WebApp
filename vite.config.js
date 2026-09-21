@@ -76,6 +76,16 @@ export default defineConfig({
           }
         });
 
+        app.post('/api/send-telegram-reminder', async (req, res) => {
+          try {
+            const { default: handler } = await import('./api/send-telegram-reminder.js');
+            return await handler(req, res);
+          } catch (err) {
+            console.error('[DEV API] Error in send-telegram-reminder:', err);
+            return res.status(500).json({ error: err.message });
+          }
+        });
+
         server.middlewares.use(app);
       },
     },

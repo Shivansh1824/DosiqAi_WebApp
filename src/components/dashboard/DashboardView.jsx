@@ -7,6 +7,8 @@ import { MedicalSection } from './MedicalSection';
 import { HealthSection }  from './HealthSection';
 import { FamilySection }  from './FamilySection';
 import { Loader2 }        from 'lucide-react';
+import { TELEGRAM_BOT_URL } from '../../lib/telegramConfig';
+import { CareLoopHistorySection } from './CareLoopHistorySection';
 
 const formatProfile = (m, memberVitals = {}) => {
   const birthYear = m.date_of_birth ? new Date(m.date_of_birth).getFullYear() : null;
@@ -55,6 +57,7 @@ export const DashboardView = () => {
   const [documents, setDocuments] = useState([]);
   const [medications, setMedications] = useState([]);
   const [vitals, setVitals] = useState([]);
+  const [events, setEvents] = useState([]);
 
   // Fetch all real account data for the logged-in user
   const fetchAccountData = useCallback(async () => {
@@ -143,10 +146,17 @@ export const DashboardView = () => {
         scientific_name: m.generic_name || m.name,
         category: m.medicine_purpose || m.medicine_type || 'Prescription',
         categoryColor: 'emerald',
-        slot: m.timing_dosage || '1-0-1',
-        time: m.reminder_times?.[0] || '08:00 AM',
+        slot: m.timing_dosage || '0-0-1',
+        timing_dosage: m.timing_dosage || '0-0-1',
+        time: m.reminder_times?.[0] || '08:00 PM',
+        reminder_times: m.reminder_times || ['20:00'],
         food: m.food_relationship || 'With Food',
         duration: m.duration_days ? `${m.duration_days} days` : 'Ongoing',
+        duration_days: m.duration_days || 60,
+        start_date: m.start_date || '2026-09-21',
+        interval_days: m.interval_days !== undefined && m.interval_days !== null ? m.interval_days : 1,
+        dosage_instruction: m.dosage_instruction || null,
+        strength: m.strength || null,
         status: m.status || 'active',
         is_synced: true,
         doc_id: m.document_id || null,
@@ -184,9 +194,13 @@ export const DashboardView = () => {
                   category: enriched.medicine_purpose || enriched.medicine_type || 'Prescription',
                   categoryColor: 'emerald',
                   slot: dosage,
+                  timing_dosage: timing.dosage || '0-0-1',
                   time: '08:00 AM',
+                  reminder_times: ['08:00'],
                   food: mealRelation,
                   duration: med.duration_days ? `${med.duration_days} days` : 'As Prescribed',
+                  duration_days: med.duration_days || 60,
+                  start_date: d.visit_date || '2026-09-21',
                   status: 'unlinked',
                   is_synced: false,
                   doc_id: d.id,
@@ -194,7 +208,7 @@ export const DashboardView = () => {
                   doctor_name: d.ai_analysis_result?.prescription_data?.doctor_name || d.issued_by || 'Attending Physician',
                   dosage_instruction: med.dosage_instruction || null,
                   timing: timing,
-                  interval_days: med.interval_days,
+                  interval_days: med.interval_days !== undefined && med.interval_days !== null ? med.interval_days : 1,
                 });
               }
             });
@@ -203,6 +217,35 @@ export const DashboardView = () => {
       }
 
       setMedications([...syncedMeds, ...docMeds]);
+
+      // 5. Fetch Care Loop Events
+      try {
+        const { data: loopEvents } = await supabase
+          .from('care_loop_events')
+          .select('*')
+          .order('dispatched_at', { ascending: false });
+
+        if (loopEvents && loopEvents.length > 0) {
+          const mappedEvents = loopEvents.map(e => ({
+            id: e.id,
+            date: e.dispatched_at ? e.dispatched_at.split('T')[0] : new Date().toISOString().split('T')[0],
+            time: e.dispatched_at ? new Date(e.dispatched_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '12:27 PM',
+            medication: e.medication_name,
+            dosage: e.dosage_instruction || 'As prescribed',
+            slot: e.scheduled_slot ? `${e.scheduled_slot.charAt(0).toUpperCase() + e.scheduled_slot.slice(1)} Slot` : 'Night Slot',
+            status: e.response_status || 'confirmed',
+            patient: primarySelf?.name || 'Shivansh',
+            profile: e.family_member_id || primarySelf?.id,
+            channel: 'Telegram Bot',
+            latency: e.latency_seconds ? `${e.latency_seconds}s` : '2s',
+            notes: e.notes || 'Verified through Telegram Care Loop',
+            message: `${primarySelf?.name || 'Shivansh'} ${e.response_status === 'skipped' ? 'skipped' : 'confirmed'} ${e.medication_name || 'medication'} at ${e.dispatched_at ? new Date(e.dispatched_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '12:27 PM'}`
+          }));
+          setEvents(mappedEvents);
+        }
+      } catch (loopErr) {
+        console.warn('Could not fetch care_loop_events:', loopErr);
+      }
 
     } catch (err) {
       console.error('Error hydrating dashboard from Supabase:', err);
@@ -398,11 +441,14 @@ export const DashboardView = () => {
           generic_name: med.scientific_name || med.name,
           medicine_type: med.form || 'Tablet',
           medicine_purpose: med.category || 'Prescription',
-          timing_dosage: med.slot || '1-0-1',
-          reminder_times: ['08:00', '20:00'],
-          food_relationship: med.food || 'With Food',
-          duration_days: parseInt(med.duration, 10) || 7,
-          status: 'active',
+          strength: med.strength || null,
+          dosage_instruction: med.dosage_instruction || null,
+          timing_dosage: med.slot || '0-0-1',
+          reminder_times: ['20:00'],
+          food_relationship: med.food || 'After Food',
+          start_date: new Date().toISOString().split('T')[0],
+          duration_days: parseInt(med.duration, 10) || 60,
+          source_document_id: med.doc_id || null,
         };
 
         await supabase
@@ -413,8 +459,12 @@ export const DashboardView = () => {
       }
     }
 
-    // 3. Open Telegram bot
-    window.open('https://t.me/dosiq_bot', '_blank');
+    // 3. Mark active profile as telegram linked
+    setActiveProfile(prev => prev ? { ...prev, telegram_linked: true } : prev);
+    setProfiles(prev => prev.map(p => (p.id === activeProfile?.id || p.relationship === 'Self') ? { ...p, telegram_linked: true } : p));
+
+    // 4. Open Telegram bot
+    window.open(TELEGRAM_BOT_URL, '_blank');
   };
 
   // Mark Medicine as Course Completed
@@ -548,6 +598,7 @@ export const DashboardView = () => {
             onProfileSelect={setActiveProfile}
             documents={profileDocs}
             medications={profileMeds}
+            events={events}
             onDocumentAdded={handleDocumentAdded}
             onAddMember={handleAddMember}
             initialDoc={viewingDoc}
@@ -568,9 +619,20 @@ export const DashboardView = () => {
             documents={profileDocs}
             biomarkers={vitalsBiomarkers}
             conflicts={[]}
+            events={events}
             onSyncMedicine={handleSyncMedicine}
             onCompleteMedicine={handleCompleteMedicine}
             onActionMedicine={handleActionMedicine}
+          />
+        )}
+
+        {activeTab === 'careloop' && (
+          <CareLoopHistorySection
+            profiles={profiles}
+            activeProfile={activeProfile}
+            onProfileSelect={setActiveProfile}
+            medications={profileMeds}
+            events={events}
           />
         )}
 

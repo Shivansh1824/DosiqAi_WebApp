@@ -4,7 +4,7 @@ import {
   Globe, Stethoscope, HeartPulse, Users,
   Menu, X, Settings, LogOut, LayoutDashboard, User, ClipboardList,
   ChevronDown, ChevronsLeft, ChevronsRight, Plus, CheckCircle2,
-  Users2
+  Users2, Send
 } from 'lucide-react';
 import { DosiqLogo } from '../common/DosiqLogo';
 import gsap from 'gsap';
@@ -130,6 +130,7 @@ const TABS = [
   { id: 'world',    label: 'Overview',          icon: Globe,        desc: 'Family command center' },
   { id: 'medical',  label: 'Clinical Records',  icon: Stethoscope,  desc: 'Documents & Vault' },
   { id: 'health',   label: 'Health',            icon: HeartPulse,   desc: 'Meds & Biomarkers' },
+  { id: 'careloop', label: 'Care Loop',         icon: Send,         desc: 'Schedule & Adherence' },
   { id: 'family',   label: 'Family',            icon: Users,        desc: 'Profile management' },
 ];
 
@@ -155,7 +156,7 @@ export const SidebarLayout = ({
   const closeMenu = () => setMobileMenuOpen(false);
 
   const activeTab_ = TABS.find(t => t.id === activeTab);
-  const linkedCount = profiles.filter(p => p.telegram_linked).length;
+  const linkedCount = profiles.filter(p => p.telegram_linked || !!p.telegram_chat_id || !!p.telegram_username).length;
   const totalMembers = profiles.length || 1;
 
   // Close viewing dropdown on outside click

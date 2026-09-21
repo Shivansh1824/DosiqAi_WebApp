@@ -5,6 +5,7 @@ import {
   Camera, Upload, Trash2, ExternalLink
 } from 'lucide-react';
 import { compressAvatarFile } from '../../lib/imageUtils';
+import { TELEGRAM_BOT_USERNAME, TELEGRAM_BOT_URL } from '../../lib/telegramConfig';
 
 const RELATIONSHIPS = [
   'Self', 'Father', 'Mother', 'Spouse', 'Child', 'Son', 'Daughter', 'Brother', 'Sister', 'Other'
@@ -246,7 +247,7 @@ export const ProfileSettingsModal = ({
                   value={formData.mobile_number}
                   onChange={(e) => handleChange('mobile_number', e.target.value.replace(/\D/g, '').slice(0, 10))}
                   className="w-full pl-16 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-all font-mono"
-                  placeholder="9811627530"
+                  placeholder="9876543210"
                 />
               </div>
               <p className="text-[11px] text-slate-400 mt-1">Used to dispatch automated medication alerts to this profile.</p>
@@ -545,12 +546,12 @@ export const ProfileSettingsModal = ({
               <div className="flex items-center justify-between text-xs text-slate-500 px-1">
                 <span>Bot Link:</span>
                 <a
-                  href="https://t.me/dosiq_bot"
+                  href={TELEGRAM_BOT_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sky-600 font-bold hover:underline flex items-center gap-1"
                 >
-                  Open @dosiq_bot on Telegram <ExternalLink className="w-3 h-3" />
+                  Open @{TELEGRAM_BOT_USERNAME} on Telegram <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             </div>

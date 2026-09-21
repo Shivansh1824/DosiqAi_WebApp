@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { UploadDocumentModal } from './UploadDocumentModal';
+import { TELEGRAM_BOT_URL } from '../../lib/telegramConfig';
 
 // ─── Color Helper ─────────────────────────────────────────────────────────────
 
@@ -489,7 +490,7 @@ export const WorldSection = ({
                       </span>
                     ) : (
                       <a
-                        href="https://t.me/dosiq_bot"
+                        href={TELEGRAM_BOT_URL}
                         target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-sky-600 transition-colors"
                       >

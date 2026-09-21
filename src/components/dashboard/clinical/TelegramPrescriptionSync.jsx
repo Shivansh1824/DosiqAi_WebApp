@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Send, CheckCircle2, Clock, Zap, ExternalLink, Bell, Smartphone, ShieldCheck, Sparkles, Edit3 } from 'lucide-react';
 import { TimePickerModal } from '../../onboarding/TimePickerModal';
 import { isMedicationSos, calculateDoseSchedule, formatTime12h } from '../../../lib/medicationScheduler';
+import { TELEGRAM_BOT_USERNAME, TELEGRAM_BOT_URL } from '../../../lib/telegramConfig';
 
 export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = [], durationDays = 3 }) => {
   const [simulated, setSimulated] = useState(false);
@@ -53,9 +54,40 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
     return false;
   });
 
+  const handleOpenTelegram = async () => {
+    try {
+      fetch('/api/send-telegram-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'greeting',
+          patientName,
+          medicines,
+          slotTimes
+        })
+      }).catch(err => console.warn('Could not dispatch Telegram greeting:', err));
+    } catch (e) {
+      // Non-blocking
+    }
+  };
+
   const handleSimulate = async () => {
     setSimulating(true);
-    await new Promise(r => setTimeout(r, 700));
+    try {
+      await fetch('/api/send-telegram-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'checkin',
+          patientName,
+          medicines,
+          slotTimes
+        })
+      });
+    } catch (err) {
+      console.warn('Could not dispatch Telegram checkin:', err);
+    }
+    await new Promise(r => setTimeout(r, 600));
     setSimulating(false);
     setSimulated(true);
   };
@@ -105,13 +137,14 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
 
             {/* Telegram Connect Button */}
             <a
-              href="https://t.me/dosiq_bot"
+              href={TELEGRAM_BOT_URL}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={handleOpenTelegram}
               className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white hover:bg-emerald-50 active:scale-[0.98] text-emerald-950 text-xs font-black transition-all shadow-lg shadow-black/20 shrink-0"
             >
               <Send className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Open @dosiq_bot on Telegram</span>
+              <span>Open @{TELEGRAM_BOT_USERNAME} on Telegram</span>
               <ExternalLink className="w-3 h-3 text-emerald-600" />
             </a>
           </div>
@@ -288,7 +321,7 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
                 <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs font-black text-emerald-900">Dosiq Care Bot (@dosiq_bot)</span>
+                    <span className="text-xs font-black text-emerald-900">Dosiq Care Bot (@{TELEGRAM_BOT_USERNAME})</span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-mono">Just now</span>
                 </div>
