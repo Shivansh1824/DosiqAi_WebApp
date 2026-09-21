@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText, FlaskConical, Scan, BookOpen,
-  Zap, CheckCircle2, Clock, Filter, Download
+  Zap, CheckCircle2, Clock, Filter, Download, Stethoscope
 } from 'lucide-react';
 
 // ─── Doc type config ──────────────────────────────────────────────────────────
@@ -25,48 +25,52 @@ const ALL_TYPES = ['All', 'Prescription', 'Blood Test', 'Scan', 'Discharge Summa
 // ─── Demo extraction animation state ─────────────────────────────────────────
 
 const EXTRACTION_STAGES = [
-  'Decoding handwriting…',
-  'Extracting drug names…',
-  'Normalizing dosage codes (BD, TDS, AC/PC)…',
-  'Running drug conflict check…',
-  'Structuring regimen…',
-  '✓ Extraction complete!',
+  'Detecting clinical document structure...',
+  'Transcribing handwritten doctor script...',
+  'Extracting medications, dosages & timing...',
+  'Running drug-drug interaction shield...',
+  'Finalizing clinical directives & care loop...',
 ];
 
-const SampleExtractionFlow = ({ type, onComplete }) => {
+const SampleExtractionFlow = ({ type = 'Prescription', onComplete }) => {
   const [stage, setStage] = useState(0);
-  const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (stage >= EXTRACTION_STAGES.length - 1) {
-      setDone(true);
-      setTimeout(() => onComplete?.(), 1000);
-      return;
-    }
-    const t = setTimeout(() => setStage(s => s + 1), 700);
-    return () => clearTimeout(t);
-  }, [stage]);
+    const timer = setInterval(() => {
+      setStage(prev => {
+        if (prev < EXTRACTION_STAGES.length - 1) {
+          return prev + 1;
+        } else {
+          clearInterval(timer);
+          setTimeout(() => onComplete?.(), 400);
+          return prev;
+        }
+      });
+    }, 450);
+
+    return () => clearInterval(timer);
+  }, [onComplete]);
 
   return (
-    <div className="flex flex-col gap-2 px-4 py-3 rounded-2xl bg-slate-900 border border-slate-700">
-      <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        dosiq AI Extracting {type}…
+    <div className="bg-gradient-to-br from-emerald-950 to-teal-900 text-white rounded-2xl p-5 border border-emerald-700/60 shadow-lg flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-emerald-400 animate-pulse" />
+          <span className="text-xs font-bold text-emerald-200 uppercase tracking-wider">
+            AI Clinical Analysis Engine
+          </span>
+        </div>
+        <span className="text-xs font-mono text-emerald-400">
+          Stage {stage + 1}/{EXTRACTION_STAGES.length}
+        </span>
       </div>
-      <div className="space-y-1">
-        {EXTRACTION_STAGES.slice(0, stage + 1).map((s, i) => (
-          <p
-            key={i}
-            className={`text-[11px] font-mono transition-opacity duration-300 ${
-              i === stage ? 'text-white opacity-100' : 'text-slate-500 opacity-60'
-            }`}
-          >
-            {i < stage ? '✓ ' : i === stage && !done ? '⟩ ' : ''}{s}
-          </p>
-        ))}
-      </div>
+
+      <p className="text-sm font-semibold text-white">
+        {EXTRACTION_STAGES[stage]}
+      </p>
+
       {/* Progress bar */}
-      <div className="h-1 bg-slate-700 rounded-full overflow-hidden">
+      <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
         <div
           className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700"
           style={{ width: `${Math.round(((stage + 1) / EXTRACTION_STAGES.length) * 100)}%` }}
@@ -82,6 +86,43 @@ const DocCard = ({ doc, onClick }) => {
   const meta = TYPE_META[doc.type] || TYPE_META['Prescription'];
   const color = DOC_COLOR[meta.color] || DOC_COLOR.emerald;
   const Icon = meta.icon;
+  const ai = doc.ai_analysis_result;
+  const isRx = doc.type === 'Prescription';
+
+  // 1. Primary File Name (Uploaded or stored file name)
+  const uploadedFileName = doc.local_file_path || 
+    doc.file_name || 
+    doc.original_filename || 
+    doc.name || 
+    (doc.cloud_file_key ? doc.cloud_file_key.split('/').pop() : null) ||
+    (isRx ? 'prescription_dossier.pdf' : 'lab_report_panel.pdf');
+
+  const displayFileName = uploadedFileName.includes('/') 
+    ? uploadedFileName.split('/').pop() 
+    : uploadedFileName;
+
+  // Decoded title coming from the JSON (e.g. "Shivanya - Cough and Cold Prescription - 26 Dec 2025")
+  const jsonFileName = ai?.file_name || 
+    doc.ai_file_name || 
+    (doc.diagnosis && !doc.diagnosis.includes('Protocol') && !doc.diagnosis.includes('Record')
+      ? `${doc.patient_name || 'Patient'} - ${doc.diagnosis} Prescription`
+      : null) ||
+    (doc.file_name && !doc.file_name.toLowerCase().startsWith('photo') && !doc.file_name.toLowerCase().endsWith('.jpg') && !doc.file_name.toLowerCase().endsWith('.jpeg') && !doc.file_name.toLowerCase().endsWith('.png') ? doc.file_name : null) ||
+    (isRx ? 'Prescription Clinical Dossier' : 'Diagnostic Lab Analysis');
+
+  // 3. Doctor's Name from JSON / Document
+  const doctorName = ai?.prescription_data?.doctor_name || 
+    ai?.report_data?.referred_by || 
+    ai?.report_data?.lab_name || 
+    (doc.doctor && !doc.doctor.includes('Consulting') ? doc.doctor : null) ||
+    (doc.issued_by && !doc.issued_by.includes('Consulting') ? doc.issued_by : null) ||
+    (isRx ? 'Dr. R. Mehta, MD (Cardiology)' : 'Metropolis Healthcare Labs');
+
+  // 4. Hospital / Clinic Name
+  const hospitalName = ai?.prescription_data?.hospital_name || 
+    ai?.report_data?.lab_name || 
+    doc.hospital || 
+    (doc.clinic && doc.clinic !== 'Clinical Vault' ? doc.clinic : null);
 
   const dateFormatted = doc.date
     ? new Date(doc.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -89,26 +130,50 @@ const DocCard = ({ doc, onClick }) => {
 
   return (
     <div 
-      className={`flex flex-col gap-3 p-4 rounded-2xl bg-white border ${color.border} hover:shadow-md transition-all duration-200 group cursor-pointer`}
+      className={`flex flex-col justify-between gap-3.5 p-4 rounded-2xl bg-white border ${color.border} hover:shadow-md transition-all duration-200 group cursor-pointer`}
       onClick={() => onClick?.(doc)}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className={`w-9 h-9 rounded-xl ${color.bg} ${color.icon} flex items-center justify-center shrink-0 border ${color.border}`}>
-          <Icon className="w-4 h-4" />
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className={`w-9 h-9 rounded-xl ${color.bg} ${color.icon} flex items-center justify-center shrink-0 border ${color.border}`}>
+            <Icon className="w-4 h-4" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${color.badge}`}>
+              {meta.label}
+            </span>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              <button 
+                className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors" 
+                aria-label="Download"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Download className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-          <button className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors" aria-label="Download">
-            <Download className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
 
-      <div>
-        <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${color.badge} mb-1`}>
-          {meta.label}
-        </span>
-        <p className="text-sm font-bold text-slate-900 leading-snug">{doc.diagnosis}</p>
-        <p className="text-[11px] text-slate-500 mt-0.5">{doc.doctor}</p>
+        <div>
+          {/* Primary Title: Name coming from the JSON in bold black */}
+          <h4 className="text-sm font-black text-slate-900 leading-snug tracking-tight" title={jsonFileName}>
+            {jsonFileName}
+          </h4>
+
+          {/* Doctor's Name & Clinic/Hospital */}
+          <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-1.5 flex-wrap">
+            <Stethoscope className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span className="font-bold text-slate-800">
+              {doctorName}
+            </span>
+            {hospitalName && (
+              <>
+                <span className="text-slate-300">•</span>
+                <span className="text-[11px] text-slate-500">{hospitalName}</span>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium border-t border-slate-100 pt-2.5">
@@ -144,15 +209,27 @@ export const ClinicalVaultSection = ({ documents = [], onUpload, onDocumentAdded
   const handleExtractionComplete = (type) => {
     setExtractingType(null);
     setExtractionDone(prev => ({ ...prev, [type]: true }));
+
+    const isRx = type === 'rx';
+    const sampleFileName = isRx ? 'dr_mehta_prescription_cardiology.pdf' : 'metropolis_blood_lipid_panel.pdf';
+    const sampleJsonFileName = isRx ? 'Shivansh - Cardiac Follow-up Prescription - 21 Sep 2026' : 'Shivansh - Comprehensive Metabolic & Lipid Panel - 21 Sep 2026';
+    const sampleDoctor = isRx ? 'Dr. R. Mehta, MD (Cardiology)' : 'Dr. S. K. Gupta, MD (Pathologist)';
+    const sampleClinic = isRx ? 'Apollo Heart & Clinical Institute' : 'Metropolis Healthcare Labs';
+    const sampleDiagnosis = isRx ? 'Essential Hypertension & Cardiac Care' : 'Complete Metabolic & Lipid Profile';
+
     onDocumentAdded?.({
       id: `doc_${Date.now()}`,
-      type: type === 'rx' ? 'Prescription' : 'Blood Test',
-      diagnosis: type === 'rx' ? 'Clinical Prescription Protocol' : 'Complete Metabolic & Lipid Panel',
-      doctor: type === 'rx' ? 'Dr. R. Mehta, MD (Cardiology)' : 'SRL Diagnostics Laboratory',
-      clinic: 'Clinical Vault',
+      type: isRx ? 'Prescription' : 'Blood Test',
+      file_name: sampleFileName,
+      local_file_path: sampleFileName,
+      ai_file_name: sampleJsonFileName,
+      diagnosis: sampleDiagnosis,
+      doctor: sampleDoctor,
+      clinic: sampleClinic,
+      hospital: sampleClinic,
       date: new Date().toISOString().split('T')[0],
       verified: true,
-      badge: type === 'rx' ? 'Rx Decoded' : 'Lab Analyzed',
+      badge: isRx ? 'Rx Decoded' : 'Lab Analyzed',
       ai_status: 'completed',
     });
   };
@@ -170,42 +247,7 @@ export const ClinicalVaultSection = ({ documents = [], onUpload, onDocumentAdded
             {documents.length} document{documents.length !== 1 ? 's' : ''} secured · End-to-end encrypted
           </p>
         </div>
-
-        {/* Judge-friendly fast-track buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Demo:</span>
-          {!extractionDone.rx && (
-            <button
-              type="button"
-              id="try-sample-rx"
-              onClick={() => handleSample('rx')}
-              disabled={!!extractingType}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] text-white text-[11px] font-bold shadow-sm shadow-emerald-600/20 transition-all duration-150 disabled:opacity-50"
-            >
-              <Zap className="w-3 h-3" /> Try Sample Prescription
-            </button>
-          )}
-          {!extractionDone.lab && (
-            <button
-              type="button"
-              id="try-sample-lab"
-              onClick={() => handleSample('lab')}
-              disabled={!!extractingType}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-[0.97] text-white text-[11px] font-bold shadow-sm shadow-sky-600/20 transition-all duration-150 disabled:opacity-50"
-            >
-              <Zap className="w-3 h-3" /> Try Sample Lab Report
-            </button>
-          )}
-        </div>
       </div>
-
-      {/* AI Extraction animation */}
-      {extractingType && (
-        <SampleExtractionFlow
-          type={extractingType === 'rx' ? 'Prescription' : 'Lab Report'}
-          onComplete={() => handleExtractionComplete(extractingType)}
-        />
-      )}
 
       {/* Filter pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">

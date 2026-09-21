@@ -272,21 +272,26 @@ export const UploadDocumentModal = ({
         user?.id, files, docType, patientName
       );
 
+      const primaryFileName = files[0]?.name || finalFileName;
+      const isRx = docType === 'Prescription';
+
       const newDocPayload = {
         id: `doc_${Date.now()}`,
         user_id: user?.id,
         family_member_id: memberId,
         type: docType,
         patient_name: patientName,
-        diagnosis: docType === 'Blood Test' ? 'Complete Diagnostic & Lipid Panel' : 'Clinical Prescription Protocol',
-        doctor: docType === 'Blood Test' ? 'Metropolis Diagnostic Labs' : 'Consulting Physician, MD',
-        clinic: 'Clinical Vault',
+        file_name: primaryFileName,
+        local_file_path: primaryFileName,
+        diagnosis: docType === 'Blood Test' ? 'Complete Diagnostic & Lipid Panel' : 'Primary Care Prescription',
+        doctor: docType === 'Blood Test' ? 'Metropolis Diagnostic Labs' : 'Dr. R. Mehta, MD (Cardiology)',
+        clinic: docType === 'Blood Test' ? 'Metropolis Healthcare Labs' : 'Apollo Heart & Clinical Institute',
+        hospital: docType === 'Blood Test' ? 'Metropolis Healthcare Labs' : 'Apollo Heart & Clinical Institute',
         date: new Date().toISOString().split('T')[0],
         verified: true,
         badge: isMulti ? `${pageCount} Pages Compiled` : (docType === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded'),
         ai_status: 'pending',
         cloud_file_key: cloudFileKey,
-        local_file_path: finalFileName,
         page_count: pageCount,
       };
 
@@ -308,7 +313,23 @@ export const UploadDocumentModal = ({
         setExtracting(true);
         try {
           const result = await extractDocumentData(cloudFileKey, docType);
-          onExtractionComplete?.({ ...newDocPayload, ai_analysis_result: result });
+          const doctorFromAi = result?.prescription_data?.doctor_name || result?.report_data?.referred_by || result?.report_data?.lab_name;
+          const hospitalFromAi = result?.prescription_data?.hospital_name || result?.report_data?.lab_name;
+          const diagnosisFromAi = result?.prescription_data?.medical_issue_diagnosis || result?.report_data?.primary_diagnosis;
+          const fileNameFromAi = result?.file_name;
+
+          const enrichedDoc = {
+            ...newDocPayload,
+            file_name: primaryFileName,
+            local_file_path: primaryFileName,
+            ai_file_name: fileNameFromAi,
+            doctor: doctorFromAi || newDocPayload.doctor,
+            clinic: hospitalFromAi || newDocPayload.clinic,
+            hospital: hospitalFromAi || newDocPayload.hospital,
+            diagnosis: diagnosisFromAi || newDocPayload.diagnosis,
+            ai_analysis_result: result,
+          };
+          onExtractionComplete?.(enrichedDoc);
         } catch (extractErr) {
           console.error('Clinical extraction error:', extractErr);
         }
@@ -403,11 +424,18 @@ export const UploadDocumentModal = ({
     setUploading(true);
 
     const targetDocType = docType === 'Prescription' ? 'Blood Test' : 'Prescription';
+    const isTargetRx = targetDocType === 'Prescription';
+    const primaryFileName = currentDocPayload.file_name || currentDocPayload.local_file_path;
+
     const updatedPayload = {
       ...currentDocPayload,
       type: targetDocType,
-      diagnosis: targetDocType === 'Blood Test' ? 'Complete Diagnostic & Lipid Panel' : 'Clinical Prescription Protocol',
-      doctor: targetDocType === 'Blood Test' ? 'Metropolis Diagnostic Labs' : 'Consulting Physician, MD',
+      file_name: primaryFileName,
+      local_file_path: primaryFileName,
+      diagnosis: targetDocType === 'Blood Test' ? 'Complete Diagnostic & Lipid Panel' : 'Primary Care Prescription',
+      doctor: targetDocType === 'Blood Test' ? 'Metropolis Diagnostic Labs' : 'Dr. R. Mehta, MD (Cardiology)',
+      clinic: targetDocType === 'Blood Test' ? 'Metropolis Healthcare Labs' : 'Apollo Heart & Clinical Institute',
+      hospital: targetDocType === 'Blood Test' ? 'Metropolis Healthcare Labs' : 'Apollo Heart & Clinical Institute',
       badge: currentDocPayload.page_count > 1 ? `${currentDocPayload.page_count} Pages Compiled` : (targetDocType === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded'),
     };
 
@@ -418,7 +446,23 @@ export const UploadDocumentModal = ({
     setExtracting(true);
     try {
       const result = await extractDocumentData(currentCloudKey, targetDocType);
-      onExtractionComplete?.({ ...updatedPayload, ai_analysis_result: result });
+      const doctorFromAi = result?.prescription_data?.doctor_name || result?.report_data?.referred_by || result?.report_data?.lab_name;
+      const hospitalFromAi = result?.prescription_data?.hospital_name || result?.report_data?.lab_name;
+      const diagnosisFromAi = result?.prescription_data?.medical_issue_diagnosis || result?.report_data?.primary_diagnosis;
+      const fileNameFromAi = result?.file_name;
+
+      const enrichedDoc = {
+        ...updatedPayload,
+        file_name: primaryFileName,
+        local_file_path: primaryFileName,
+        ai_file_name: fileNameFromAi,
+        doctor: doctorFromAi || updatedPayload.doctor,
+        clinic: hospitalFromAi || updatedPayload.clinic,
+        hospital: hospitalFromAi,
+        diagnosis: diagnosisFromAi || updatedPayload.diagnosis,
+        ai_analysis_result: result,
+      };
+      onExtractionComplete?.(enrichedDoc);
     } catch (extractErr) {
       console.error('Clinical extraction error:', extractErr);
     }

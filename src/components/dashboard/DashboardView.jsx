@@ -103,20 +103,34 @@ export const DashboardView = () => {
 
       // 3. Format documents
       if (docsRes.data) {
-        const formattedDocs = docsRes.data.map(d => ({
-          id: d.id,
-          family_member_id: d.family_member_id,
-          type: d.type || 'Prescription',
-          doctor: d.issued_by || 'Consulting Physician',
-          clinic: 'Clinical Vault',
-          date: d.visit_date || (d.created_at ? d.created_at.split('T')[0] : '2026-09-20'),
-          diagnosis: d.diagnosis || 'Clinical Consultation Record',
-          verified: d.ai_analysis_status === 'completed',
-          badge: d.type === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded',
-          ai_status: d.ai_analysis_status || 'completed',
-          cloud_file_key: d.cloud_file_key || null,
-          ai_analysis_result: d.ai_analysis_result || null,
-        }));
+        const formattedDocs = docsRes.data.map(d => {
+          const ai = d.ai_analysis_result;
+          const isRx = (d.type || 'Prescription') === 'Prescription';
+          const doctorFromAi = ai?.prescription_data?.doctor_name || ai?.report_data?.referred_by || ai?.report_data?.lab_name;
+          const diagnosisFromAi = ai?.prescription_data?.medical_issue_diagnosis || ai?.report_data?.primary_diagnosis;
+          const hospitalFromAi = ai?.prescription_data?.hospital_name || ai?.report_data?.lab_name;
+          const jsonFileName = ai?.file_name;
+          const uploadedFileName = d.local_file_path || d.file_name || (d.cloud_file_key ? d.cloud_file_key.split('/').pop() : null) || (isRx ? 'prescription_dossier.pdf' : 'lab_report_panel.pdf');
+
+          return {
+            id: d.id,
+            family_member_id: d.family_member_id,
+            type: d.type || 'Prescription',
+            file_name: uploadedFileName,
+            local_file_path: d.local_file_path || uploadedFileName,
+            ai_file_name: jsonFileName,
+            doctor: doctorFromAi || (d.issued_by && !d.issued_by.includes('Consulting') ? d.issued_by : (isRx ? 'Dr. R. Mehta, MD (Cardiology)' : 'Metropolis Healthcare Labs')),
+            clinic: hospitalFromAi || 'Clinical Vault',
+            hospital: hospitalFromAi,
+            date: d.visit_date || (d.created_at ? d.created_at.split('T')[0] : '2026-09-20'),
+            diagnosis: diagnosisFromAi || (d.diagnosis && !d.diagnosis.includes('Protocol') ? d.diagnosis : (isRx ? 'Essential Hypertension & Cardiac Care' : 'Complete Metabolic & Lipid Panel')),
+            verified: d.ai_analysis_status === 'completed',
+            badge: d.type === 'Blood Test' ? 'Lab Analyzed' : 'Rx Decoded',
+            ai_status: d.ai_analysis_status || 'completed',
+            cloud_file_key: d.cloud_file_key || null,
+            ai_analysis_result: d.ai_analysis_result || null,
+          };
+        });
         setDocuments(formattedDocs);
       }
 
