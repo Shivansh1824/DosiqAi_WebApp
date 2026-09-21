@@ -295,3 +295,31 @@ export const broadcastMobilePhoto = async (sessionId, filePayload) => {
     });
   });
 };
+
+/**
+ * Obtains a secure temporary URL (signed or public) to view a document stored in Supabase Storage.
+ * 
+ * @param {string} cloudFileKey - Key format e.g. 'medical-vault/user_id/...' or 'user_id/...'
+ * @returns {Promise<string|null>}
+ */
+export const getDocumentFileUrl = async (cloudFileKey) => {
+  if (!cloudFileKey) return null;
+  const path = cloudFileKey.replace(/^medical-vault\//, '');
+  try {
+    const { data, error } = await supabase.storage
+      .from('medical-vault')
+      .createSignedUrl(path, 3600);
+    if (!error && data?.signedUrl) {
+      return data.signedUrl;
+    }
+  } catch (err) {
+    console.warn('Signed URL generation error (handled):', err);
+  }
+  try {
+    const { data } = supabase.storage.from('medical-vault').getPublicUrl(path);
+    return data?.publicUrl || null;
+  } catch (err) {
+    console.warn('Public URL generation error (handled):', err);
+    return null;
+  }
+};

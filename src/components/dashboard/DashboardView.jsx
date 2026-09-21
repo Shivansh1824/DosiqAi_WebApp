@@ -633,8 +633,6 @@ export const DashboardView = () => {
             activeProfile={activeProfile}
             onProfileSelect={setActiveProfile}
             documents={profileDocs}
-            medications={profileMeds}
-            events={events}
             onDocumentAdded={handleDocumentAdded}
             onAddMember={handleAddMember}
             initialDoc={viewingDoc}

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Stethoscope } from 'lucide-react';
 import { ClinicalVaultSection } from './ClinicalVaultSection';
 import { UploadDocumentModal }  from './UploadDocumentModal';
-import { CareLoopSection }      from './CareLoopSection';
 import { QuickProfileSwitcher } from './QuickProfileSwitcher';
 import { ClinicalAnalysisScreen } from './clinical/ClinicalAnalysisScreen';
 import { LabReportAnalysisScreen } from './clinical/LabReportAnalysisScreen';
@@ -13,8 +12,6 @@ export const MedicalSection = ({
   activeProfile,
   onProfileSelect,
   documents = [],
-  medications = [],
-  events = [],
   onDocumentAdded,
   onAddMember,
   initialDoc = null,
@@ -99,7 +96,7 @@ export const MedicalSection = ({
             Clinical Records
           </h2>
           <p className="text-sm text-slate-500 mt-1 font-medium">
-            Secure AI-decoded documents and care loop for <span className="text-slate-800 font-bold">{firstName}</span>.
+            Secure AI-decoded documents and pathology reports for <span className="text-slate-800 font-bold">{firstName}</span>.
           </p>
         </div>
 
@@ -110,29 +107,14 @@ export const MedicalSection = ({
         />
       </div>
 
-      {/* Main 2-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* Documents (left, 2/3) */}
-        <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-          <ClinicalVaultSection
-            documents={documents}
-            onUpload={() => setUploadOpen(true)}
-            onDocumentAdded={onDocumentAdded}
-            onDocumentClick={handleDocumentClick}
-          />
-        </div>
-
-        {/* Care Loop Panel (right, 1/3) */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm sticky top-24">
-            <CareLoopSection
-              profile={activeProfile}
-              medications={medications}
-              events={events}
-            />
-          </div>
-        </div>
+      {/* Full-width Clinical Documents Section */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-sm">
+        <ClinicalVaultSection
+          documents={documents}
+          onUpload={() => setUploadOpen(true)}
+          onDocumentAdded={onDocumentAdded}
+          onDocumentClick={handleDocumentClick}
+        />
       </div>
 
       {/* Upload Modal */}

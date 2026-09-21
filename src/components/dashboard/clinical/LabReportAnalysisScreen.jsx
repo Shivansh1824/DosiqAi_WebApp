@@ -9,12 +9,14 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { BiomarkerPanelCard, MetricRow } from './BiomarkerPanelCard';
 import { TrendChart } from './LabTrendChart';
+import { DocumentPreviewModal } from './DocumentPreviewModal';
 
 gsap.registerPlugin(useGSAP);
 
 export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, allReportDocs = [] }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [showJsonModal, setShowJsonModal] = useState(false);
+  const [showDocPreview, setShowDocPreview] = useState(false);
   const containerRef = useRef(null);
 
   const extraction = doc?.ai_analysis_result;
@@ -351,6 +353,18 @@ Abnormalities Found: ${totalAbnormal}`}
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* View Original Uploaded Report */}
+          <button
+            type="button"
+            onClick={() => setShowDocPreview(true)}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-sky-700 bg-slate-100 hover:bg-sky-50 px-3 py-2 rounded-xl border border-slate-200/80 hover:border-sky-200 transition-colors"
+            title="View Original Uploaded Lab Report"
+          >
+            <Eye className="w-3.5 h-3.5 text-sky-600" />
+            <span className="hidden sm:inline">View Report</span>
+            <span className="sm:hidden">View</span>
+          </button>
+
           <button
             type="button"
             onClick={() => window.print()}
@@ -427,6 +441,17 @@ Abnormalities Found: ${totalAbnormal}`}
                       All Clear
                     </span>
                   )}
+
+                  {/* View Original Lab Document Pill */}
+                  <button
+                    type="button"
+                    onClick={() => setShowDocPreview(true)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-sky-700 bg-slate-100 hover:bg-sky-50 px-3 py-1 rounded-full border border-slate-200/80 hover:border-sky-200 transition-colors cursor-pointer"
+                    title="View original uploaded lab report document"
+                  >
+                    <Eye className="w-3 h-3 text-sky-600" />
+                    <span>View Original</span>
+                  </button>
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
@@ -528,6 +553,13 @@ Abnormalities Found: ${totalAbnormal}`}
           </div>
         </div>
       )}
+
+      {/* ── Original Document Preview Modal ──────────────────────────── */}
+      <DocumentPreviewModal
+        doc={doc}
+        isOpen={showDocPreview}
+        onClose={() => setShowDocPreview(false)}
+      />
     </div>
   );
 };

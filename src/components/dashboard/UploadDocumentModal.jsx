@@ -852,48 +852,46 @@ export const UploadDocumentModal = ({
                   />
                 )}
 
-                {/* 3. Document Display: PDF iframe preview OR image gallery */}
-                {files.length > 0 && (
+                {/* 3. Document Display: PDF preview card OR image gallery */}
+                {files.length > 0 && !uploading && !checking && !extracting && (
                   isPdfLocked ? (
-                    // PDF Preview Card — native browser iframe renders page 1
-                    <div className="rounded-2xl overflow-hidden border-2 border-sky-200 bg-sky-50/40">
-                      <div className="flex items-center justify-between px-3.5 py-2 border-b border-sky-100">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-sky-600" />
-                          <span className="text-[11px] font-bold text-sky-800 truncate max-w-[200px]">{files[0].name}</span>
+                    // Clean Clinical PDF Document Card (eliminates native browser PDF plugin controls like +, -, magnifying glass, download)
+                    <div className="rounded-2xl overflow-hidden border-2 border-sky-200 bg-sky-50/50 p-4 flex flex-col gap-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-12 h-12 rounded-2xl bg-sky-100 border border-sky-200 flex items-center justify-center shrink-0">
+                            <FileText className="w-6 h-6 text-sky-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-slate-900 truncate max-w-[220px]">
+                              {files[0].name}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                              {files[0].size ? `${Math.round(files[0].size / 1024)} KB · Medical PDF Document` : 'Medical PDF Document'}
+                            </p>
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => openPdfInNewTab(files[0].dataUrl)}
-                          className="text-[10px] font-bold text-sky-600 hover:text-sky-800 bg-sky-100 hover:bg-sky-200 px-2.5 py-1 rounded-lg transition-colors shrink-0"
-                        >
-                          Open Full PDF ↗
-                        </button>
+
+                        {files[0].dataUrl && (
+                          <button
+                            type="button"
+                            onClick={() => openPdfInNewTab(files[0].dataUrl)}
+                            className="text-xs font-bold text-sky-700 hover:text-sky-900 bg-white hover:bg-sky-100/70 border border-sky-200 px-3 py-1.5 rounded-xl transition-all shrink-0 active:scale-95 shadow-2xs"
+                          >
+                            Open Full PDF ↗
+                          </button>
+                        )}
                       </div>
-                      {/* Clickable iframe preview — click opens full PDF in new tab */}
-                      <div
-                        className="relative cursor-pointer group"
-                        onClick={() => openPdfInNewTab(files[0].dataUrl)}
-                        title="Click to open full PDF"
-                      >
-                        <iframe
-                          src={`${files[0].dataUrl}#page=1&toolbar=0&navpanes=0&scrollbar=0`}
-                          className="w-full h-56 border-0 pointer-events-none"
-                          title="PDF Preview"
-                        />
-                        {/* Hover overlay */}
-                        <div className="absolute inset-0 bg-sky-900/0 group-hover:bg-sky-900/10 transition-colors flex items-center justify-center">
-                          <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[11px] font-black text-white bg-sky-600 px-3 py-1.5 rounded-xl shadow-lg">
-                            Click to open full PDF
-                          </span>
-                        </div>
-                      </div>
-                      {/* Remove PDF button */}
-                      <div className="px-3.5 py-2.5 border-t border-sky-100 flex justify-end">
+
+                      <div className="flex items-center justify-between pt-2 border-t border-sky-200/60 text-[11px]">
+                        <span className="text-emerald-700 font-bold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Ready for Clinical AI Analysis
+                        </span>
                         <button
                           type="button"
                           onClick={() => setFiles([])}
-                          className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg transition-colors"
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-0.5 rounded-lg transition-colors"
                         >
                           ✕ Remove PDF
                         </button>
@@ -928,7 +926,7 @@ export const UploadDocumentModal = ({
                   type="button"
                   id="confirm-upload-btn"
                   onClick={handleConfirmUpload}
-                  disabled={files.length === 0 || uploading || checking}
+                  disabled={files.length === 0 || uploading || checking || extracting}
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-black text-sm shadow-lg shadow-emerald-600/25 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed mt-1"
                 >
                   {done ? (
@@ -940,6 +938,11 @@ export const UploadDocumentModal = ({
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>{files.length > 1 ? 'Compiling Multi-Page PDF & Securing…' : 'Securing Document to Vault…'}</span>
+                    </>
+                  ) : extracting ? (
+                    <>
+                      <Sparkles className="w-4 h-4 animate-spin text-emerald-300" />
+                      <span>Extracting Clinical Intelligence…</span>
                     </>
                   ) : checking ? (
                     <>
