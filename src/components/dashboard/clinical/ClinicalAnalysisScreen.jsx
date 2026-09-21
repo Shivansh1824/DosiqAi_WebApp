@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   ArrowLeft, Pill, FlaskConical, Brain, ShieldCheck,
   AlertTriangle, CheckCircle2, Clock, User, Building2,
@@ -32,7 +32,22 @@ export const ClinicalAnalysisScreen = ({ doc, onBack, isExtracting = false }) =>
   const fileName = extraction?.file_name || doc?.local_file_path || `${patient?.name || 'Patient'} Prescription Dossier`;
 
   const confidencePct = Math.round((meta?.confidence_score ?? 0.95) * 100);
-  const medicines = rx?.medicines || [];
+  const [medicines, setMedicines] = useState(rx?.medicines || []);
+
+  useEffect(() => {
+    if (rx?.medicines) {
+      setMedicines(rx.medicines);
+    }
+  }, [rx?.medicines]);
+
+  const handleUpdateMedicine = (idx, updatedMed) => {
+    setMedicines(prev => {
+      const copy = [...prev];
+      copy[idx] = updatedMed;
+      return copy;
+    });
+  };
+
   const durationDays = medicines.find(m => m.duration_days)?.duration_days || 3;
   const interactionFlag = rx?.drug_interactions?.potential_interactions_flag;
   const interactionNote = rx?.drug_interactions?.interaction_note || '';
@@ -263,6 +278,7 @@ Drug Conflict Shield: ${interactionFlag ? 'Interaction Flagged' : 'All Clear'}`}
                   med={med}
                   index={idx}
                   interactionNote={interactionNote}
+                  onUpdate={(updated) => handleUpdateMedicine(idx, updated)}
                 />
               ))
             ) : (

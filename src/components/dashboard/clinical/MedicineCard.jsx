@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Clock, Pill, AlertTriangle, ShieldCheck, CheckCircle2,
   ChevronDown, ChevronUp, Stethoscope, Utensils, Calendar,
-  Sparkles, Info, HelpCircle
+  Sparkles, Info, HelpCircle, Check, Plus, Edit3
 } from 'lucide-react';
 
 const MEAL_CONFIG = {
@@ -44,8 +44,17 @@ const FORM_ICONS = {
   Sachet: '📦',
 };
 
-export const MedicineCard = ({ med = {}, index = 0, interactionNote = '' }) => {
+const FREQUENCY_OPTIONS = [
+  { label: '1x Daily (Morning)', dosage: '1-0-0', times: 1 },
+  { label: '1x Daily (Night)', dosage: '0-0-1', times: 1 },
+  { label: '2x Daily (Morning & Night)', dosage: '1-0-1', times: 2 },
+  { label: '3x Daily (Morning, Afternoon & Night)', dosage: '1-1-1', times: 3 },
+  { label: 'SOS / As Needed', dosage: null, times: 0, isSos: true },
+];
+
+export const MedicineCard = ({ med = {}, index = 0, interactionNote = '', onUpdate }) => {
   const [expanded, setExpanded] = useState(false);
+  const [showFreqDropdown, setShowFreqDropdown] = useState(false);
 
   // Safe field extraction
   const writtenName = String(med.exact_written_name || med.name || 'Prescribed Medication');
@@ -90,6 +99,60 @@ export const MedicineCard = ({ med = {}, index = 0, interactionNote = '' }) => {
     afternoonDose = 1;
     nightDose = 1;
   }
+
+  // Toggle individual slot (Morning, Afternoon, Night)
+  const toggleSlot = (slot) => {
+    let nextM = morningDose;
+    let nextA = afternoonDose;
+    let nextN = nightDose;
+
+    if (slot === 'morning') nextM = nextM > 0 ? 0 : 1;
+    if (slot === 'afternoon') nextA = nextA > 0 ? 0 : 1;
+    if (slot === 'night') nextN = nextN > 0 ? 0 : 1;
+
+    const nextCode = `${nextM}-${nextA}-${nextN}`;
+    const nextTotal = (nextM > 0 ? 1 : 0) + (nextA > 0 ? 1 : 0) + (nextN > 0 ? 1 : 0);
+
+    const updated = {
+      ...med,
+      timing: {
+        ...timing,
+        dosage: nextCode,
+        total_times_per_day: nextTotal,
+      },
+      interval_days: nextTotal === 0 ? 0 : 1
+    };
+
+    onUpdate?.(updated);
+  };
+
+  // Change frequency preset
+  const selectFrequency = (opt) => {
+    setShowFreqDropdown(false);
+    if (opt.isSos) {
+      const updated = {
+        ...med,
+        interval_days: 0,
+        timing: {
+          ...timing,
+          dosage: null,
+          total_times_per_day: 0
+        }
+      };
+      onUpdate?.(updated);
+    } else {
+      const updated = {
+        ...med,
+        interval_days: 1,
+        timing: {
+          ...timing,
+          dosage: opt.dosage,
+          total_times_per_day: opt.times
+        }
+      };
+      onUpdate?.(updated);
+    }
+  };
 
   // Check if this medicine is flagged in interaction note
   const hasInteraction = interactionNote && (
@@ -146,14 +209,48 @@ export const MedicineCard = ({ med = {}, index = 0, interactionNote = '' }) => {
           </div>
         </div>
 
-        {/* Adherence / Times Per Day Pill */}
-        <div className="flex items-center gap-2">
+        {/* Customizable Frequency Popover Button */}
+        <div className="relative">
           <div className="text-right">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Frequency</span>
-            <span className="text-xs font-black text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 inline-block">
-              {isSos ? 'SOS / As Needed' : `${totalTimes}x Daily`}
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+              Frequency (Click to Edit)
             </span>
+            <button
+              type="button"
+              onClick={() => setShowFreqDropdown(prev => !prev)}
+              className="flex items-center gap-1.5 text-xs font-black text-slate-900 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 px-3 py-1.5 rounded-xl border border-slate-200 transition-all duration-150 active:scale-95 shadow-xs"
+              title="Click to customize frequency"
+            >
+              <span>{isSos ? 'SOS / As Needed' : `${totalTimes}x Daily`}</span>
+              <Edit3 className="w-3 h-3 text-slate-400 group-hover:text-emerald-600" />
+            </button>
           </div>
+
+          {/* Frequency Popover Dropdown */}
+          {showFreqDropdown && (
+            <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 z-40 flex flex-col gap-1 animate-in fade-in duration-150">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-1">
+                Select Daily Frequency
+              </span>
+              {FREQUENCY_OPTIONS.map((opt, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => selectFrequency(opt)}
+                  className={`flex items-center justify-between text-left px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
+                    (opt.isSos && isSos) || (opt.dosage === dosageCode)
+                      ? 'bg-emerald-50 text-emerald-800 font-black'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span>{opt.label}</span>
+                  {((opt.isSos && isSos) || (opt.dosage === dosageCode)) && (
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -170,66 +267,89 @@ export const MedicineCard = ({ med = {}, index = 0, interactionNote = '' }) => {
         </div>
       </div>
 
-      {/* ── Daily Schedule & Timing Grid ──────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-        {/* Morning Slot */}
-        <div className={`p-3 rounded-xl border flex items-center justify-between ${
-          morningDose > 0
-            ? 'bg-amber-50/70 border-amber-200 text-amber-900 font-bold'
-            : 'bg-slate-50/50 border-slate-200/60 text-slate-400 font-normal'
-        }`}>
-          <div className="flex items-center gap-2">
-            <span className="text-base">☀️</span>
-            <div>
-              <p className="text-xs font-black">Morning (08:00 AM)</p>
-              <p className="text-[10px] opacity-80">Breakfast slot</p>
-            </div>
-          </div>
-          <span className={`text-xs px-2 py-0.5 rounded-md font-mono font-black ${
-            morningDose > 0 ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-100 text-slate-400'
-          }`}>
-            {morningDose > 0 ? `${morningDose} Dose` : '—'}
+      {/* ── Daily Schedule & Timing Grid (Interactive Click-to-Toggle Slots) ── */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Dose Schedule Slots (Tap any slot to toggle on/off)
+          </span>
+          <span className="text-[10px] text-emerald-700 font-semibold">
+            Customizable Slots
           </span>
         </div>
 
-        {/* Afternoon Slot */}
-        <div className={`p-3 rounded-xl border flex items-center justify-between ${
-          afternoonDose > 0
-            ? 'bg-sky-50/70 border-sky-200 text-sky-900 font-bold'
-            : 'bg-slate-50/50 border-slate-200/60 text-slate-400 font-normal'
-        }`}>
-          <div className="flex items-center gap-2">
-            <span className="text-base">🌤️</span>
-            <div>
-              <p className="text-xs font-black">Afternoon (02:00 PM)</p>
-              <p className="text-[10px] opacity-80">Lunch slot</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {/* Morning Slot */}
+          <button
+            type="button"
+            onClick={() => toggleSlot('morning')}
+            className={`p-3 rounded-xl border flex items-center justify-between text-left transition-all active:scale-[0.98] ${
+              morningDose > 0
+                ? 'bg-amber-50/80 border-amber-300 text-amber-950 font-bold shadow-xs'
+                : 'bg-slate-50/50 border-slate-200/70 text-slate-400 hover:border-amber-200 hover:bg-amber-50/30'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-base">☀️</span>
+              <div>
+                <p className="text-xs font-black">Morning (08:00 AM)</p>
+                <p className="text-[10px] opacity-80">Breakfast slot</p>
+              </div>
             </div>
-          </div>
-          <span className={`text-xs px-2 py-0.5 rounded-md font-mono font-black ${
-            afternoonDose > 0 ? 'bg-sky-100 text-sky-900 border border-sky-300' : 'bg-slate-100 text-slate-400'
-          }`}>
-            {afternoonDose > 0 ? `${afternoonDose} Dose` : '—'}
-          </span>
-        </div>
+            <span className={`text-xs px-2 py-0.5 rounded-md font-mono font-black ${
+              morningDose > 0 ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-slate-200/70 text-slate-500'
+            }`}>
+              {morningDose > 0 ? `${morningDose} Dose` : '+ Add'}
+            </span>
+          </button>
 
-        {/* Night Slot */}
-        <div className={`p-3 rounded-xl border flex items-center justify-between ${
-          nightDose > 0
-            ? 'bg-indigo-50/70 border-indigo-200 text-indigo-900 font-bold'
-            : 'bg-slate-50/50 border-slate-200/60 text-slate-400 font-normal'
-        }`}>
-          <div className="flex items-center gap-2">
-            <span className="text-base">🌙</span>
-            <div>
-              <p className="text-xs font-black">Night (08:00 PM)</p>
-              <p className="text-[10px] opacity-80">Dinner slot</p>
+          {/* Afternoon Slot */}
+          <button
+            type="button"
+            onClick={() => toggleSlot('afternoon')}
+            className={`p-3 rounded-xl border flex items-center justify-between text-left transition-all active:scale-[0.98] ${
+              afternoonDose > 0
+                ? 'bg-sky-50/80 border-sky-300 text-sky-950 font-bold shadow-xs'
+                : 'bg-slate-50/50 border-slate-200/70 text-slate-400 hover:border-sky-200 hover:bg-sky-50/30'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-base">🌤️</span>
+              <div>
+                <p className="text-xs font-black">Afternoon (02:00 PM)</p>
+                <p className="text-[10px] opacity-80">Lunch slot</p>
+              </div>
             </div>
-          </div>
-          <span className={`text-xs px-2 py-0.5 rounded-md font-mono font-black ${
-            nightDose > 0 ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' : 'bg-slate-100 text-slate-400'
-          }`}>
-            {nightDose > 0 ? `${nightDose} Dose` : '—'}
-          </span>
+            <span className={`text-xs px-2 py-0.5 rounded-md font-mono font-black ${
+              afternoonDose > 0 ? 'bg-sky-100 text-sky-900 border border-sky-300' : 'bg-slate-200/70 text-slate-500'
+            }`}>
+              {afternoonDose > 0 ? `${afternoonDose} Dose` : '+ Add'}
+            </span>
+          </button>
+
+          {/* Night Slot */}
+          <button
+            type="button"
+            onClick={() => toggleSlot('night')}
+            className={`p-3 rounded-xl border flex items-center justify-between text-left transition-all active:scale-[0.98] ${
+              nightDose > 0
+                ? 'bg-indigo-50/80 border-indigo-300 text-indigo-950 font-bold shadow-xs'
+                : 'bg-slate-50/50 border-slate-200/70 text-slate-400 hover:border-indigo-200 hover:bg-indigo-50/30'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-base">🌙</span>
+              <div>
+                <p className="text-xs font-black">Night (08:00 PM)</p>
+                <p className="text-[10px] opacity-80">Dinner slot</p>
+              </div>
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-md font-mono font-black ${
+              nightDose > 0 ? 'bg-indigo-100 text-indigo-900 border border-indigo-300' : 'bg-slate-200/70 text-slate-500'
+            }`}>
+              {nightDose > 0 ? `${nightDose} Dose` : '+ Add'}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -252,7 +372,7 @@ export const MedicineCard = ({ med = {}, index = 0, interactionNote = '' }) => {
             </div>
           )}
 
-          {/* Dosage Matrix Code with Explanatory Hover Tooltip */}
+          {/* Dosage Matrix Code with Explanatory Hover Tooltip (Light Mode) */}
           {dosageCode && (
             <div className="relative group/tooltip flex items-center">
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-mono font-bold cursor-help transition-colors">
