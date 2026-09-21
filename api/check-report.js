@@ -156,12 +156,8 @@ You must return a strict, clean JSON object with this exact schema (no markdown 
           if (response?.text) break keyLoop;
         } catch (err) {
           lastErr = err;
-          const isRetryable = err.status === 503 || err.status === 429 || err.message?.includes('high demand') || err.message?.includes('quota');
-          if (isRetryable) {
-            console.warn(`[Gemini Check Report] ${modelName} hit limit (${err.status || 429}). Trying next candidate...`);
-            continue;
-          }
-          throw err;
+          console.warn(`[Gemini Check Report] ${modelName} failed (${err.status || err.message}). Trying next candidate...`);
+          continue;
         }
       }
     }

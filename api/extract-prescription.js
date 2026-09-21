@@ -261,12 +261,8 @@ export default async function handler(req, res) {
           if (response?.text) break keyLoop;
         } catch (err) {
           lastErr = err;
-          const isRetryable = err.status === 503 || err.status === 429 || err.message?.includes('high demand') || err.message?.includes('quota');
-          if (isRetryable) {
-            console.warn(`[Gemini Extract Rx] ${modelName} hit limit (${err.status || 429}). Trying next candidate...`);
-            continue;
-          }
-          throw err;
+          console.warn(`[Gemini Extract Rx] ${modelName} failed (${err.status || err.message}). Trying next candidate...`);
+          continue;
         }
       }
     }

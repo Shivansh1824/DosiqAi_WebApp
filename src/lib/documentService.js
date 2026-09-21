@@ -300,11 +300,12 @@ export const extractDocumentData = async (cloudFileKey, docType, fileBase64 = nu
 
   // Persist result to documents table by cloud_file_key if possible
   if (cloudFileKey) {
-    await supabase
-      .from('documents')
-      .update({ ai_analysis_result: data.extraction, ai_analysis_status: 'completed' })
-      .eq('cloud_file_key', cloudFileKey)
-      .catch(() => {});
+    try {
+      await supabase
+        .from('documents')
+        .update({ ai_analysis_result: data.extraction, ai_analysis_status: 'completed' })
+        .eq('cloud_file_key', cloudFileKey);
+    } catch (_) {}
   }
 
   return data.extraction;
