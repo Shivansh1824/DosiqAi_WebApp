@@ -223,7 +223,7 @@ export const WorldSection = ({
                   <h3 className="text-sm font-black text-slate-900 leading-tight">
                     {isAllFamily ? "Latest AI Clinical Insights" : `Latest AI Clinical Insights — ${activeProfile?.name?.split(' ')[0] || ''}`}
                   </h3>
-                  <p className="text-[10px] text-slate-400 font-medium">Decoded with Google Gemini 3.8 Flash</p>
+                  <p className="text-[10px] text-slate-400 font-medium">Decoded with Dosiq AI Clinical Intelligence</p>
                 </div>
               </div>
 
@@ -339,7 +339,7 @@ export const WorldSection = ({
                   </h4>
                   <p className="text-xs text-slate-500 max-w-sm mt-1">
                     {isAllFamily
-                      ? "Upload a prescription or lab test report to let Gemini extract handwritten medicines, dosage schedules, and health biomarkers automatically."
+                      ? "Upload a prescription or lab test report to let Dosiq AI extract handwritten medicines, dosage schedules, and health biomarkers automatically."
                       : `Upload a prescription or lab test for ${activeProfile?.name} to view their decoded medicines and biomarker analysis.`}
                   </p>
                 </div>

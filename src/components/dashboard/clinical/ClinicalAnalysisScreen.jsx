@@ -139,7 +139,7 @@ export const ClinicalAnalysisScreen = ({ doc, onBack, isExtracting = false }) =>
             <div className="flex items-center gap-2 text-emerald-700">
               <Brain className="w-5 h-5 text-emerald-600" />
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                Gemini AI Clinical Reasoning Trace
+                Dosiq AI Clinical Reasoning Trace
               </h3>
             </div>
             <span className="text-[11px] font-mono text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 font-bold">
@@ -162,7 +162,7 @@ export const ClinicalAnalysisScreen = ({ doc, onBack, isExtracting = false }) =>
             </div>
           ) : (
             <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 text-xs text-slate-700 leading-relaxed font-mono">
-              {`Extraction Engine: Gemini 3.8 Flash
+              {`Extraction Engine: Dosiq AI Clinical Intelligence
 Document Type: ${extraction?.document_type || 'Prescription'}
 Image Clarity: ${meta?.scan_clarity || 'Clear'}
 Handwriting: ${meta?.handwriting_detected ? 'Handwritten script decoded' : 'Printed document'}
@@ -469,7 +469,7 @@ Drug Conflict Shield: ${interactionFlag ? 'Interaction Flagged' : 'All Clear'}`}
             <Loader2 className="w-8 h-8 text-white animate-spin" />
           </div>
           <div>
-            <h3 className="text-lg font-black text-slate-900 tracking-tight">Gemini AI Clinical Extraction In Progress</h3>
+            <h3 className="text-lg font-black text-slate-900 tracking-tight">Dosiq AI Clinical Extraction In Progress</h3>
             <p className="text-sm text-slate-500 mt-1 max-w-md">
               Decoding handwriting, verifying Indian Drug Index, and building clinical regimen.
             </p>

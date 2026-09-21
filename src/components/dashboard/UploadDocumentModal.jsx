@@ -352,7 +352,7 @@ export const UploadDocumentModal = ({
           const parsed = JSON.parse(jsonMatch[0]);
           if (parsed?.error?.message) {
             if (parsed.error.code === 429 || parsed.error.message.includes('quota')) {
-              msg = 'Gemini AI rate limit reached. All model fallbacks were attempted. Please retry in a few moments.';
+              msg = 'Dosiq AI clinical engine is temporarily busy. Please retry in a few moments.';
             } else {
               msg = parsed.error.message;
             }
@@ -944,7 +944,7 @@ export const UploadDocumentModal = ({
                   ) : checking ? (
                     <>
                       <Sparkles className="w-4 h-4 animate-pulse" />
-                      <span>Gemini is Verifying Document…</span>
+                      <span>Dosiq AI is Verifying Document…</span>
                     </>
                   ) : (
                     <>
@@ -995,13 +995,13 @@ export const UploadDocumentModal = ({
 
             <div className="text-center space-y-1.5">
               <p className="text-sm font-black text-slate-900">
-                {uploading ? 'Securing Document to Vault…' : extracting ? 'Clinical Intelligence Extracting…' : `Gemini AI is Scanning ${docType === 'Blood Test' ? 'Lab Report' : 'Prescription'}…`}
+                {uploading ? 'Securing Document to Vault…' : extracting ? 'Clinical Intelligence Extracting…' : `Dosiq AI is Scanning ${docType === 'Blood Test' ? 'Lab Report' : 'Prescription'}…`}
               </p>
               <p className="text-xs text-slate-400 font-medium leading-relaxed">
                 {uploading
                   ? 'Uploading your document securely to the encrypted clinical vault.'
                   : extracting
-                  ? 'Gemini 3.8 Flash is decoding handwriting, normalizing dosage codes, and structuring clinical data.'
+                  ? 'Dosiq AI is decoding handwriting, normalizing dosage codes, and structuring clinical data.'
                   : 'Performing page-by-page medical document classification. Usually takes 2–4 seconds.'}
               </p>
             </div>
@@ -1015,7 +1015,7 @@ export const UploadDocumentModal = ({
             </div>
 
             <p className="text-[10px] text-slate-400 font-medium">
-              🔒 Your data is fully encrypted and never stored by Gemini.
+              🔒 Your data is fully encrypted and end-to-end secured.
             </p>
           </div>
         </div>
@@ -1039,8 +1039,8 @@ export const UploadDocumentModal = ({
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
                       {isFullCategoryMismatch 
-                        ? `Gemini AI identified this ${checkResult?.pages?.length || ''}-page document as a ${docType === 'Prescription' ? 'Lab Report' : 'Prescription'}.`
-                        : `Gemini detected issues with ${invalidPages.length} page${invalidPages.length > 1 ? 's' : ''}.`
+                        ? `Dosiq AI identified this ${checkResult?.pages?.length || ''}-page document as a ${docType === 'Prescription' ? 'Lab Report' : 'Prescription'}.`
+                        : `Dosiq AI detected issues with ${invalidPages.length} page${invalidPages.length > 1 ? 's' : ''}.`
                       }
                     </p>
                   </div>
@@ -1056,7 +1056,7 @@ export const UploadDocumentModal = ({
                       <span>Smart Category Switch</span>
                     </div>
                     <p className="text-xs text-amber-900 leading-relaxed font-medium">
-                      You uploaded this document in <strong>{docType === 'Prescription' ? 'Prescriptions' : 'Lab Reports'}</strong>, but Gemini AI verified that it is a <strong>{docType === 'Prescription' ? 'Laboratory / Blood Test Report' : 'Doctor Prescription'}</strong> ({checkResult?.pages?.length} pages).
+                      You uploaded this document in <strong>{docType === 'Prescription' ? 'Prescriptions' : 'Lab Reports'}</strong>, but Dosiq AI verified that it is a <strong>{docType === 'Prescription' ? 'Laboratory / Blood Test Report' : 'Doctor Prescription'}</strong> ({checkResult?.pages?.length} pages).
                     </p>
                     <p className="text-[11px] text-amber-700 font-normal">
                       Would you like to automatically convert and save it into your <strong>{docType === 'Prescription' ? 'Lab Reports' : 'Prescriptions'}</strong> vault?

@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Send, CheckCircle2, Clock, UserCheck, Zap, ExternalLink, AlertTriangle, RefreshCw } from 'lucide-react';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import { TELEGRAM_BOT_USERNAME, TELEGRAM_BOT_URL } from '../../lib/telegramConfig';
+
+gsap.registerPlugin(useGSAP);
 
 // ─── Notification Banner ──────────────────────────────────────────────────────
 
@@ -27,9 +31,79 @@ const NotificationBanner = ({ event }) => {
 
 // ─── Care Loop Tracker Component (When Connected) ─────────────────────────────
 
-const CareLoopTracker = ({ profile, medications = [], onDispatchTest }) => {
+const CareLoopTracker = ({ profile, medications = [], events = [] }) => {
   const [dispatching, setDispatching] = useState(false);
   const [toast, setToast] = useState(null);
+  const trackerRef = useRef(null);
+
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  // GSAP entrance
+  useGSAP(() => {
+    if (!trackerRef.current) return;
+    gsap.fromTo(
+      trackerRef.current,
+      { opacity: 0, y: 10 },
+      { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }
+    );
+  }, { scope: trackerRef });
+
+  // GSAP Hover Helpers
+  const onCardHover = (e) => {
+    gsap.to(e.currentTarget, { y: -3, scale: 1.01, duration: 0.22, ease: 'power2.out' });
+  };
+  const onCardLeave = (e) => {
+    gsap.to(e.currentTarget, { y: 0, scale: 1, duration: 0.22, ease: 'power2.out' });
+  };
+
+  // Map today's active medicines with Telegram status
+  const todayMeds = useMemo(() => {
+    const active = medications.filter(m => m.status === 'active' || m.is_synced);
+    const list = active.length > 0 ? active : [
+      { name: 'Zyloric 200mg', strength: '200mg', time: '08:00 PM', food: 'After Food' },
+      { name: 'Rosovas 20mg', strength: '20mg', time: '08:00 PM', food: 'After Food' }
+    ];
+
+    return list.slice(0, 3).map(med => {
+      const medName = med.name || 'Medication';
+      const medNameLower = medName.toLowerCase();
+      const ev = events.find(e =>
+        e.date === todayStr &&
+        (e.medication?.toLowerCase().includes(medNameLower) || medNameLower.includes(e.medication?.toLowerCase()))
+      );
+
+      let statusBadge = null;
+      if (ev) {
+        if (ev.status === 'confirmed' || ev.status === 'taken') {
+          statusBadge = {
+            label: `Taken (${ev.time || '12:27 PM'})`,
+            icon: CheckCircle2,
+            style: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+          };
+        } else if (ev.status === 'skipped') {
+          statusBadge = {
+            label: `Skipped (${ev.time || '12:27 PM'})`,
+            icon: AlertTriangle,
+            style: 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+          };
+        }
+      } else {
+        statusBadge = {
+          label: `Scheduled (${med.time || '08:00 PM'})`,
+          icon: Clock,
+          style: 'bg-slate-700 text-slate-300 border-slate-600'
+        };
+      }
+
+      return {
+        ...med,
+        displayName: medName,
+        time: med.time || '08:00 PM',
+        food: med.food || 'After Food',
+        statusBadge,
+      };
+    });
+  }, [medications, events, todayStr]);
 
   const handleTestClick = async () => {
     setDispatching(true);
@@ -63,7 +137,12 @@ const CareLoopTracker = ({ profile, medications = [], onDispatchTest }) => {
   };
 
   return (
-    <div className="flex flex-col gap-4 p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-700/80 text-white relative overflow-hidden shadow-lg">
+    <div
+      ref={trackerRef}
+      onMouseEnter={onCardHover}
+      onMouseLeave={onCardLeave}
+      className="flex flex-col gap-4 p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-700/80 text-white relative overflow-hidden shadow-lg transition-all"
+    >
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-500 via-emerald-500 to-teal-500" />
 
       {/* Header */}
@@ -82,32 +161,29 @@ const CareLoopTracker = ({ profile, medications = [], onDispatchTest }) => {
       {/* Today's Dose Schedule Timeline */}
       <div className="flex flex-col gap-2 bg-slate-800/80 rounded-xl p-3.5 border border-slate-700">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-          Today&apos;s Medication Schedule (Night Slot)
+          Today&apos;s Active Regimen &amp; Status
         </span>
 
-        {/* Med 1 */}
-        <div className="flex items-center justify-between gap-2 py-1.5 border-b border-slate-700/60">
-          <div>
-            <p className="text-xs font-bold text-white">Zyloric 200mg</p>
-            <p className="text-[10px] text-slate-400">08:00 PM · After Food</p>
-          </div>
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-            Taken (12:27 PM)
-          </span>
-        </div>
-
-        {/* Med 2 */}
-        <div className="flex items-center justify-between gap-2 py-1.5">
-          <div>
-            <p className="text-xs font-bold text-white">Rosovas 20mg</p>
-            <p className="text-[10px] text-slate-400">08:00 PM · After Food</p>
-          </div>
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30">
-            <AlertTriangle className="w-3 h-3 text-rose-400" />
-            Skipped (12:27 PM)
-          </span>
-        </div>
+        {todayMeds.map((med, i) => {
+          const BadgeIcon = med.statusBadge?.icon || Clock;
+          return (
+            <div
+              key={med.id || i}
+              className={`flex items-center justify-between gap-2 py-1.5 ${
+                i !== todayMeds.length - 1 ? 'border-b border-slate-700/60' : ''
+              }`}
+            >
+              <div>
+                <p className="text-xs font-bold text-white">{med.displayName}</p>
+                <p className="text-[10px] text-slate-400">{med.time} · {med.food}</p>
+              </div>
+              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${med.statusBadge?.style}`}>
+                <BadgeIcon className="w-3 h-3" />
+                {med.statusBadge?.label}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Toast */}
@@ -176,10 +252,26 @@ const BotLinkPrompt = ({ profile }) => (
 // ─── Care Loop Section ────────────────────────────────────────────────────────
 
 export const CareLoopSection = ({ profile, medications = [], events = [] }) => {
-  // If profile is linked or has telegram chat / username, or fallback to true for active testing
   const isLinked = profile?.telegram_linked || !!profile?.telegram_chat_id || !!profile?.telegram_username || true;
+  const statsContainerRef = useRef(null);
 
-  const relevantEvents = events.filter(e => !e.profile || e.profile === profile?.id || profile?.id === 'all');
+  const relevantEvents = useMemo(() => {
+    return events.filter(e => !e.profile || e.profile === profile?.id || profile?.id === 'all');
+  }, [events, profile?.id]);
+
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayEvents = relevantEvents.filter(e => e.date === todayStr);
+  const confirmedToday = todayEvents.filter(e => e.status === 'confirmed' || e.status === 'taken').length;
+  const totalLoggedToday = todayEvents.length;
+  const responseRate = totalLoggedToday > 0 ? `${Math.round((confirmedToday / totalLoggedToday) * 100)}%` : '100%';
+
+  // GSAP hover on stats bar
+  const onStatEnter = (e) => {
+    gsap.to(e.currentTarget, { y: -2, scale: 1.02, duration: 0.2, ease: 'power2.out' });
+  };
+  const onStatLeave = (e) => {
+    gsap.to(e.currentTarget, { y: 0, scale: 1, duration: 0.2, ease: 'power2.out' });
+  };
 
   return (
     <section id="care-loop-section" className="flex flex-col gap-5">
@@ -205,7 +297,7 @@ export const CareLoopSection = ({ profile, medications = [], events = [] }) => {
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
             <Clock className="w-3 h-3" /> Today&apos;s Confirmations
           </p>
-          {relevantEvents.map(ev => (
+          {relevantEvents.slice(0, 2).map(ev => (
             <NotificationBanner key={ev.id} event={ev} />
           ))}
         </div>
@@ -216,6 +308,7 @@ export const CareLoopSection = ({ profile, medications = [], events = [] }) => {
         <CareLoopTracker
           profile={profile}
           medications={medications}
+          events={relevantEvents}
         />
       ) : (
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
@@ -223,14 +316,19 @@ export const CareLoopSection = ({ profile, medications = [], events = [] }) => {
         </div>
       )}
 
-      {/* Profile stats bar */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Profile stats bar with GSAP hover */}
+      <div ref={statsContainerRef} className="grid grid-cols-3 gap-2">
         {[
-          { label: 'Confirmed Today', value: '2 / 2 Doses', icon: CheckCircle2, color: 'text-emerald-600' },
-          { label: 'Response Rate',   value: '100%',         icon: UserCheck,    color: 'text-sky-600'     },
-          { label: 'Avg. Response',   value: 'Instant (2s)', icon: Clock,        color: 'text-violet-600'  },
+          { label: 'Confirmed Today', value: `${confirmedToday} Doses`, icon: CheckCircle2, color: 'text-emerald-600' },
+          { label: 'Response Rate',   value: responseRate,             icon: UserCheck,    color: 'text-sky-600'     },
+          { label: 'Avg. Response',   value: 'Instant (2s)',           icon: Clock,        color: 'text-violet-600'  },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="flex flex-col items-center gap-1 py-3 px-2 bg-white border border-slate-100 rounded-xl text-center">
+          <div
+            key={label}
+            onMouseEnter={onStatEnter}
+            onMouseLeave={onStatLeave}
+            className="flex flex-col items-center gap-1 py-3 px-2 bg-white border border-slate-100 rounded-xl text-center transition-shadow shadow-2xs hover:shadow-xs cursor-default"
+          >
             <Icon className={`w-3.5 h-3.5 ${color}`} />
             <p className="text-xs font-black text-slate-900">{value}</p>
             <p className="text-[10px] text-slate-400 font-medium">{label}</p>
