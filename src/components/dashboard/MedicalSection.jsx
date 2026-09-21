@@ -18,6 +18,7 @@ export const MedicalSection = ({
   onAddMember,
   initialDoc = null,
   onClearInitialDoc,
+  onAnalysisStateChange,
 }) => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [analysisDoc, setAnalysisDoc] = useState(initialDoc);
@@ -28,6 +29,13 @@ export const MedicalSection = ({
       setAnalysisDoc(initialDoc);
     }
   }, [initialDoc]);
+
+  // Inform parent layout when document analysis view opens or closes
+  useEffect(() => {
+    if (onAnalysisStateChange) {
+      onAnalysisStateChange(Boolean(analysisDoc));
+    }
+  }, [analysisDoc, onAnalysisStateChange]);
 
   const handleDocumentClick = async (doc) => {
     if (doc.ai_analysis_result || !doc.cloud_file_key) {
@@ -48,6 +56,7 @@ export const MedicalSection = ({
   const handleBackFromAnalysis = () => {
     setAnalysisDoc(null);
     if (onClearInitialDoc) onClearInitialDoc();
+    if (onAnalysisStateChange) onAnalysisStateChange(false);
   };
 
   // If a document is selected or extracted, render the dedicated Clinical Analysis Screen
@@ -124,4 +133,3 @@ export const MedicalSection = ({
     </div>
   );
 };
-

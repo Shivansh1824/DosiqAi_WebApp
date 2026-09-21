@@ -46,6 +46,8 @@ export const DashboardView = () => {
   const [activeTab, setActiveTab] = useState('world');
   const [loading, setLoading] = useState(true);
   const [viewingDoc, setViewingDoc] = useState(null);
+  const [isAnalyzingDoc, setIsAnalyzingDoc] = useState(false);
+  const [isManualCollapsed, setIsManualCollapsed] = useState(false);
 
   // Real Database Data State
   const [profiles, setProfiles] = useState([]);
@@ -92,6 +94,7 @@ export const DashboardView = () => {
       setProfiles(formattedProfiles);
 
       setActiveProfile(prev => {
+        if (prev?.id === 'all') return prev;
         if (prev && formattedProfiles.some(p => p.id === prev.id)) {
           return formattedProfiles.find(p => p.id === prev.id);
         }
@@ -183,7 +186,7 @@ export const DashboardView = () => {
         console.error('Error updating family_members in Supabase:', mErr);
       }
 
-      // 2. Persist vitals (weight, height, blood_group, marital_status) in health_vitals
+      // 2. Persist vitals in health_vitals
       const vitalsToSync = [
         { type: 'weight', label: 'Body Weight', value: updated.weight, unit: 'kg' },
         { type: 'height', label: 'Height', value: updated.height, unit: 'cm' },
@@ -192,14 +195,12 @@ export const DashboardView = () => {
       ].filter(v => v.value);
 
       if (vitalsToSync.length > 0) {
-        // Clean previous records of these types for this member
         await supabase
           .from('health_vitals')
           .delete()
           .eq('family_member_id', updated.id)
           .in('type', vitalsToSync.map(v => v.type));
 
-        // Insert fresh records
         await supabase
           .from('health_vitals')
           .insert(vitalsToSync.map(v => ({
@@ -285,7 +286,7 @@ export const DashboardView = () => {
       try {
         await supabase.from('documents').insert([{
           user_id: user.id,
-          family_member_id: activeProfile?.id || null,
+          family_member_id: activeProfile?.id !== 'all' ? activeProfile?.id : null,
           type: newDoc.type,
           patient_name: activeProfile?.name || 'Patient',
           diagnosis: newDoc.diagnosis,
@@ -301,9 +302,30 @@ export const DashboardView = () => {
     }
   };
 
-  // Filtered slices for active profile
-  const profileDocs = documents.filter(d => !d.family_member_id || d.family_member_id === activeProfile?.id);
-  const profileMeds = medications.filter(m => !m.family_member_id || m.family_member_id === activeProfile?.id);
+  // Filtered slices for active profile (supports 'all' for consolidated view)
+  const isAllFamily = !activeProfile || activeProfile.id === 'all';
+  const selfProfile = profiles.find(p => p.relationship === 'Self') || profiles[0];
+
+  const profileDocs = isAllFamily
+    ? documents
+    : documents.filter(d => {
+        const docOwnerId = d.family_member_id || selfProfile?.id;
+        return docOwnerId === activeProfile?.id;
+      });
+
+  const profileMeds = isAllFamily
+    ? medications
+    : medications.filter(m => {
+        const medOwnerId = m.family_member_id || selfProfile?.id;
+        return medOwnerId === activeProfile?.id;
+      });
+
+  // Auto-collapse sidebar when analyzing documents/PDFs, or when manually toggled
+  const isSidebarCollapsed = isAnalyzingDoc || Boolean(viewingDoc) || isManualCollapsed;
+
+  const handleToggleCollapse = () => {
+    setIsManualCollapsed(prev => !prev);
+  };
 
   if (loading && profiles.length === 0) {
     return (
@@ -317,23 +339,39 @@ export const DashboardView = () => {
   }
 
   return (
-    <SidebarLayout activeTab={activeTab} onTabChange={setActiveTab} profiles={profiles}>
+    <SidebarLayout
+      activeTab={activeTab}
+      onTabChange={(tab) => {
+        setActiveTab(tab);
+        if (tab !== 'medical') {
+          setViewingDoc(null);
+          setIsAnalyzingDoc(false);
+        }
+      }}
+      profiles={profiles}
+      activeProfile={activeProfile}
+      onProfileSelect={setActiveProfile}
+      isCollapsed={isSidebarCollapsed}
+      onToggleCollapse={handleToggleCollapse}
+    >
       
       {/* Router Logic */}
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out fill-mode-both">
         
         {activeTab === 'world' && (
           <WorldSection 
+            key={activeProfile?.id || 'all'}
             user={user}
             profiles={profiles}
             activeProfile={activeProfile}
-            documents={documents}
-            medications={medications}
+            documents={profileDocs}
+            medications={profileMeds}
             onNavigate={setActiveTab}
             onAddMember={handleAddMember}
             onDocumentAdded={handleDocumentAdded}
             onViewDocument={(doc) => {
               setViewingDoc(doc);
+              setIsAnalyzingDoc(true);
               setActiveTab('medical');
             }}
           />
@@ -349,7 +387,11 @@ export const DashboardView = () => {
             onDocumentAdded={handleDocumentAdded}
             onAddMember={handleAddMember}
             initialDoc={viewingDoc}
-            onClearInitialDoc={() => setViewingDoc(null)}
+            onClearInitialDoc={() => {
+              setViewingDoc(null);
+              setIsAnalyzingDoc(false);
+            }}
+            onAnalysisStateChange={setIsAnalyzingDoc}
           />
         )}
 
@@ -380,4 +422,3 @@ export const DashboardView = () => {
     </SidebarLayout>
   );
 };
-
