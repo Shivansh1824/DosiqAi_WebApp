@@ -13,3 +13,4 @@ progress-tracker.html
 
 # System files
 .DS_Store
+supabase/.temp/

@@ -153,7 +153,7 @@ export const processDocumentFilesForVault = async (userId, files = [], docType =
 };
 
 /**
- * Calls the appropriate Gemini checker endpoint based on document type.
+ * Calls the appropriate Supabase Edge Function based on document type.
  * Returns page-by-page validation analysis from the AI.
  *
  * @param {string} cloudFileKey - Supabase path to the uploaded file
@@ -161,29 +161,26 @@ export const processDocumentFilesForVault = async (userId, files = [], docType =
  * @returns {Promise<{ isValidOverall: boolean, pages: Array }>}
  */
 export const checkDocumentValidity = async (cloudFileKey, docType) => {
-  const endpoint = docType === 'Prescription'
-    ? '/api/check-prescription'
-    : '/api/check-report';
+  const functionName = docType === 'Prescription'
+    ? 'check-prescription'
+    : 'check-report';
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cloud_file_key: cloudFileKey }),
+  const { data, error } = await supabase.functions.invoke(functionName, {
+    body: { cloud_file_key: cloudFileKey },
   });
 
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.error || `Verification failed (HTTP ${response.status})`);
+  if (error) {
+    console.error(`Supabase Edge Function ${functionName} failed:`, error);
+    throw new Error(error.message || `Verification failed (${functionName})`);
   }
 
-  const data = await response.json();
-  if (!data.success) throw new Error(data.error || 'Verification returned unsuccessful');
+  if (!data?.success) throw new Error(data?.error || 'Verification returned unsuccessful');
 
   return data.analysis;
 };
 
 /**
- * Calls the appropriate Gemini clinical extraction endpoint based on document type.
+ * Calls the appropriate Supabase Edge Function based on document type.
  * Returns the comprehensive A+ grade structured clinical JSON.
  *
  * @param {string} cloudFileKey - Supabase path to the uploaded file
@@ -191,23 +188,20 @@ export const checkDocumentValidity = async (cloudFileKey, docType) => {
  * @returns {Promise<Object>}
  */
 export const extractDocumentData = async (cloudFileKey, docType) => {
-  const endpoint = docType === 'Prescription'
-    ? '/api/extract-prescription'
-    : '/api/extract-report';
+  const functionName = docType === 'Prescription'
+    ? 'extract-prescription'
+    : 'extract-report';
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cloud_file_key: cloudFileKey }),
+  const { data, error } = await supabase.functions.invoke(functionName, {
+    body: { cloud_file_key: cloudFileKey },
   });
 
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.error || `Clinical extraction failed (HTTP ${response.status})`);
+  if (error) {
+    console.error(`Supabase Edge Function ${functionName} failed:`, error);
+    throw new Error(error.message || `Clinical extraction failed (${functionName})`);
   }
 
-  const data = await response.json();
-  if (!data.success) throw new Error(data.error || 'Clinical extraction returned unsuccessful');
+  if (!data?.success) throw new Error(data?.error || 'Clinical extraction returned unsuccessful');
 
   // Persist result to documents table by cloud_file_key
   await supabase
