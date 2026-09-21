@@ -563,8 +563,8 @@ export const DashboardView = () => {
   const vitalsBiomarkers = buildBiomarkersFromDocs(profileDocs);
   const bloodTestDocs = profileDocs.filter(d => d.type === 'Blood Test' && d.ai_analysis_result?.report_data);
 
-  // Auto-collapse sidebar when analyzing documents/PDFs, or when manually toggled
-  const isSidebarCollapsed = isAnalyzingDoc || Boolean(viewingDoc) || isManualCollapsed;
+  // Always closed by default; expands smoothly on hover via SidebarLayout
+  const isSidebarCollapsed = true;
 
   const handleToggleCollapse = () => {
     setIsManualCollapsed(prev => !prev);

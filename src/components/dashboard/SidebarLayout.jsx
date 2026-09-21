@@ -28,101 +28,8 @@ const RELATIONSHIP_GRADIENTS = {
   'Consolidated': 'from-emerald-500 to-cyan-600',
 };
 
-// ─── Avatar Dropdown (Right Header) ──────────────────────────────────────────
-
-const MENU_ITEMS = [
-  { icon: User,            label: 'My Profile',   id: 'profile' },
-  { icon: LayoutDashboard, label: 'Dashboard',    id: 'dashboard' },
-  { icon: ClipboardList,   label: 'Planning',     id: 'planning' },
-  { icon: Settings,        label: 'Settings',     id: 'settings' },
-  { icon: LogOut,          label: 'Sign Out',     id: 'signout', danger: true },
-];
-
-const AvatarDropdown = () => {
-  const { user, signOut } = useAuth();
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  const displayName =
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    user?.email?.split('@')[0] ||
-    'User';
-
-  const initials = displayName
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const handleItemClick = (id) => {
-    setOpen(false);
-    if (id === 'signout') signOut();
-  };
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-full border border-slate-200 bg-white shadow-sm hover:border-emerald-300 active:scale-95 transition-all duration-200 select-none"
-        aria-label="User menu"
-      >
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0">
-          <span className="font-bold text-[11px] text-white tracking-wide">{initials}</span>
-        </div>
-        <span className="text-sm font-bold text-slate-800 hidden sm:block max-w-[120px] truncate">{displayName}</span>
-      </button>
-
-      {open && (
-        <div
-          className="absolute right-0 top-full mt-3 w-60 bg-white border border-slate-200/80 rounded-2xl shadow-2xl shadow-slate-900/10 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150"
-        >
-          <div
-            className="px-4 py-3.5 border-b border-slate-100"
-            style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 100%)' }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                <span className="font-black text-sm text-white">{initials}</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-white truncate">{displayName}</p>
-                <p className="text-[11px] text-emerald-300 truncate font-medium">{user?.email}</p>
-              </div>
-            </div>
-          </div>
-          <div className="py-2">
-            {MENU_ITEMS.map(({ icon: Icon, label, id, danger }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => handleItemClick(id)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold transition-colors duration-150 ${
-                  danger
-                    ? 'text-rose-600 hover:bg-rose-50'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0 opacity-70" />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+// ─── Avatar Dropdown Component ───────────────────────────────────────────────
+import { AvatarDropdown } from './AvatarDropdown';
 
 // ─── Sidebar Navigation Tabs ──────────────────────────────────────────────────
 
@@ -143,7 +50,7 @@ export const SidebarLayout = ({
   profiles = [],
   activeProfile = null,
   onProfileSelect = () => {},
-  isCollapsed = false,
+  isCollapsed = true,
   onToggleCollapse = () => {},
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -184,7 +91,7 @@ export const SidebarLayout = ({
           width: 256,
           duration: 0.28,
           ease: 'power3.out',
-          boxShadow: isCollapsed ? '8px 0 36px rgba(0, 20, 10, 0.45)' : '4px 0 32px rgba(6, 78, 59, 0.35)',
+          boxShadow: '8px 0 36px rgba(0, 20, 10, 0.45)',
           overwrite: 'auto',
         });
         gsap.to('.sidebar-label-fade', {
@@ -210,7 +117,7 @@ export const SidebarLayout = ({
         });
       }
     }
-  }, { dependencies: [isCollapsed, isHovered], scope: sidebarRef });
+  }, { dependencies: [isEffectivelyExpanded], scope: sidebarRef });
 
   // Handle Profile Selection
   const handleSelectProfile = (p) => {
@@ -280,12 +187,10 @@ export const SidebarLayout = ({
       {/* ── Left Sidebar — Emerald & GSAP Animated ── */}
       <aside
         ref={sidebarRef}
-        onMouseEnter={() => isCollapsed && setIsHovered(true)}
+        onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => {
-          if (isCollapsed) {
-            setIsHovered(false);
-            setViewingDropdownOpen(false);
-          }
+          setIsHovered(false);
+          setViewingDropdownOpen(false);
         }}
         className={`fixed inset-y-0 left-0 z-50 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
@@ -304,30 +209,30 @@ export const SidebarLayout = ({
           }}
         />
 
-        {/* ── Sidebar Header: Logo & Collapse Toggle (Unstop style) ── */}
-        <div className="h-16 flex items-center justify-between px-4 shrink-0 border-b border-white/10 relative">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <DosiqLogo size="default" variant="light" showBadge={false} />
-          </div>
+        {/* ── Sidebar Header: Logo (clean & centered when closed, never eaten up) ── */}
+        <div className={`h-16 flex items-center shrink-0 border-b border-white/10 relative transition-all duration-200 ${
+          isEffectivelyExpanded ? 'justify-between px-4' : 'justify-center px-0'
+        }`}>
+          {isEffectivelyExpanded ? (
+            <div className="flex items-center gap-2.5 overflow-hidden sidebar-label-fade">
+              <DosiqLogo size="default" variant="light" showBadge={false} iconOnly={false} />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center w-full" title="Dosiq AI">
+              <img
+                src="/dosiq-logo.jpg"
+                alt="dosiq logo"
+                width={36}
+                height={36}
+                className="w-9 h-9 rounded-xl object-cover shrink-0 shadow-sm ring-1 ring-white/10 hover:scale-105 transition-transform"
+              />
+            </div>
+          )}
 
-          {/* Unstop-style Collapse/Expand Toggle Button (Desktop) */}
+          {/* Close for mobile drawer */}
           <button
             type="button"
-            onClick={onToggleCollapse}
-            className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-emerald-200/60 hover:text-white hover:bg-white/10 transition-colors ml-auto"
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {isCollapsed && !isHovered ? (
-              <ChevronsRight className="w-4 h-4" />
-            ) : (
-              <ChevronsLeft className="w-4 h-4" />
-            )}
-          </button>
-
-          {/* Close for mobile */}
-          <button
-            type="button"
-            className="p-1.5 rounded-xl text-white/50 hover:text-white hover:bg-white/10 lg:hidden transition-colors ml-auto"
+            className="p-1.5 rounded-xl text-white/50 hover:text-white hover:bg-white/10 lg:hidden transition-colors ml-auto mr-3"
             onClick={closeMenu}
           >
             <X className="w-4 h-4" />
