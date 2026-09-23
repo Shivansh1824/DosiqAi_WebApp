@@ -12,7 +12,7 @@ const PRESET_EMOJIS = {
 };
 
 // ── Step 1 live preview card ──────────────────────────────────────────────────
-export const Step1PreviewCard = ({ name, avatar, doseTime }) => {
+const Step1PreviewCard = ({ name, avatar, doseTime }) => {
   const initials = name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
   const isPreset = avatar?.startsWith('preset-');
 
@@ -60,7 +60,7 @@ export const Step1PreviewCard = ({ name, avatar, doseTime }) => {
 };
 
 // ── Step 2 live preview card ──────────────────────────────────────────────────
-export const Step2PreviewCard = ({ members, primaryName, primaryAvatar }) => {
+const Step2PreviewCard = ({ members, primaryName, primaryAvatar }) => {
   const allProfiles = [
     { name: primaryName || 'You', relationship: 'Self', avatar: primaryAvatar, isYou: true },
     ...members.map(m => ({

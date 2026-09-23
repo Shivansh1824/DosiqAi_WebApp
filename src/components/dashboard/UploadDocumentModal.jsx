@@ -227,16 +227,62 @@ export const UploadDocumentModal = ({
     window.open(blobUrl, '_blank');
   };
 
+const SAMPLE_PRESETS = {
+  'Blood Test': [
+    {
+      id: 'lab-1',
+      title: 'Report 1 (Aug 2019)',
+      subtitle: 'Metabolic & Lipid Panel',
+      url: '/sample-data/2019-08-18_Whole_body_Test_2.pdf',
+      name: '2019-08-18 Whole body Test 2.pdf',
+      mime: 'application/pdf',
+    },
+    {
+      id: 'lab-2',
+      title: 'Report 2 (Aug 2019)',
+      subtitle: 'Whole Body Checkup 1.0',
+      url: '/sample-data/Whole_Body_Checkup_1.0_Result_2019-08-18.pdf',
+      name: 'Whole Body Checkup 1.0 Result 2019-08-18.pdf',
+      mime: 'application/pdf',
+    },
+    {
+      id: 'lab-3',
+      title: 'Report 3 (Feb 2020)',
+      subtitle: 'Complete Blood Count Panel',
+      url: '/sample-data/Whole_Blood_Count_Report_February_2020.pdf',
+      name: 'Whole Blood Count Report February 2020.pdf',
+      mime: 'application/pdf',
+    },
+  ],
+  'Prescription': [
+    {
+      id: 'rx-1',
+      title: 'Rx 1 (Dec 2025)',
+      subtitle: 'Dr. Tarun (Pediatric / URI)',
+      url: '/sample-data/PHOTO-2026-02-21-10-55-18.jpg',
+      name: 'PHOTO-2026-02-21-10-55-18.jpg',
+      mime: 'image/jpeg',
+    },
+    {
+      id: 'rx-2',
+      title: 'Rx 2 (Feb 2026)',
+      subtitle: 'Dr. Makhanlal (Consultation)',
+      url: '/sample-data/PHOTO-2026-09-20-10-48-42.jpg',
+      name: 'PHOTO-2026-09-20-10-48-42.jpg',
+      mime: 'image/jpeg',
+    },
+  ],
+};
+
   // Quick sample loader for fast testing (fetches real sample assets from /sample-data/)
-  const handleSample = async (type) => {
+  const handleSample = async (type, presetIndex = 0) => {
     resetUploadState();
-    const isRx = type === 'Prescription';
-    const sampleUrl = isRx ? '/sample-data/sample_prescription.jpg' : '/sample-data/sample_lab_report.pdf';
-    const sampleName = isRx ? 'PHOTO-2026-02-21-10-55-18.jpg' : '2019-08-18 Whole body Test 2.pdf';
-    const sampleMime = isRx ? 'image/jpeg' : 'application/pdf';
+    const presets = SAMPLE_PRESETS[type] || [];
+    const selected = presets[presetIndex] || presets[0];
+    if (!selected) return;
 
     try {
-      const response = await fetch(sampleUrl);
+      const response = await fetch(selected.url);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
       const reader = new FileReader();
@@ -244,11 +290,11 @@ export const UploadDocumentModal = ({
         setFiles([
           {
             id: `sample_${Date.now()}`,
-            name: sampleName,
+            name: selected.name,
             size: blob.size,
-            type: sampleMime,
+            type: selected.mime,
             dataUrl: reader.result,
-            fileObj: new File([blob], sampleName, { type: sampleMime }),
+            fileObj: new File([blob], selected.name, { type: selected.mime }),
             capturedVia: 'sample_preset',
           },
         ]);
@@ -260,9 +306,9 @@ export const UploadDocumentModal = ({
       setFiles([
         {
           id: `sample_${Date.now()}`,
-          name: sampleName,
-          size: isRx ? 116000 : 510000,
-          type: sampleMime,
+          name: selected.name,
+          size: selected.mime === 'application/pdf' ? 510000 : 120000,
+          type: selected.mime,
           dataUrl: null,
           fileObj: null,
           capturedVia: 'sample_preset',
@@ -909,33 +955,50 @@ export const UploadDocumentModal = ({
                     </label>
                   )}
 
-                  {/* Judge / Evaluator Fast-Track Sample Card */}
+                  {/* Sample Documents Section */}
                   {files.length === 0 && (
-                    <div className="flex items-center justify-between p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 border border-emerald-500/25 shadow-xs">
-                      <div className="flex items-center gap-2.5 min-w-0 pr-3">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0">
-                          <Zap className="w-4 h-4 text-emerald-700 fill-emerald-600" />
+                    <div className="rounded-2xl border-2 border-dashed border-emerald-300/80 bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-slate-50 p-4 transition-all">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0">
+                            <Sparkles className="w-4 h-4 text-emerald-700" />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-black text-slate-900 tracking-tight">
+                              Sample Documents
+                            </h4>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              Test with pre-loaded clinical documents without uploading personal files
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                            <span>Judge / Evaluator Fast-Track</span>
-                            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                              Instant Test
-                            </span>
-                          </p>
-                          <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                            No medical document on hand? Click to load our sample {docType === 'Blood Test' ? 'pathology lab report (CBC / Metabolic Panel)' : 'handwritten clinical prescription'} to test live AI decoding.
-                          </p>
-                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
+                          Instant Test
+                        </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleSample(docType)}
-                        className="flex items-center gap-1.5 text-xs font-black text-white bg-slate-900 hover:bg-slate-800 active:scale-95 px-3.5 py-2 rounded-xl shadow-sm transition-all shrink-0 cursor-pointer"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Use Sample {docType === 'Blood Test' ? 'Lab Report' : 'Prescription'}</span>
-                      </button>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {(SAMPLE_PRESETS[docType] || []).map((preset, idx) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => handleSample(docType, idx)}
+                            className="flex flex-col text-left p-3 rounded-xl border border-slate-200 bg-white hover:border-emerald-400 hover:bg-emerald-50/50 hover:shadow-xs active:scale-[0.98] transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-black text-slate-800 group-hover:text-emerald-700 transition-colors line-clamp-1">
+                                {preset.title}
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-200 shrink-0">
+                                {idx === 0 ? 'Select First One' : idx === 1 ? 'Select Second One' : 'Select Third One'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1 line-clamp-1">
+                              {preset.subtitle}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

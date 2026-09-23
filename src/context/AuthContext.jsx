@@ -3,18 +3,23 @@ import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext(null);
 
+const DEMO_USER_ID = 'f60a2cc4-0b10-48fa-899e-1ac1e8d360c5';
+const DEMO_USER_EMAIL = 'judge.demo@dosiq.ai';
+const DEMO_USER_PASSWORD = 'DemoJudge@Dosiq2026!';
+
 const DEMO_USER = {
-  id: 'demo-caregiver-judge-01',
-  email: 'judge.demo@dosiq.ai',
+  id: DEMO_USER_ID,
+  email: DEMO_USER_EMAIL,
   user_metadata: {
     full_name: 'Alex Sharma',
     name: 'Alex Sharma',
+    role: 'demo_judge',
   },
 };
 
 const DEMO_PRIMARY_PROFILE = {
   id: 'demo-self-01',
-  user_id: 'demo-caregiver-judge-01',
+  user_id: DEMO_USER_ID,
   name: 'Alex Sharma',
   relationship: 'Self',
   onboarding_completed: true,
@@ -33,11 +38,6 @@ export const AuthProvider = ({ children }) => {
   // Auto-provision or fetch primary 'Self' profile in family_members
   const ensurePrimaryProfile = async (currentUser) => {
     if (!currentUser) return null;
-    if (currentUser.id === DEMO_USER.id) {
-      setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
-      setIsOnboarded(true);
-      return DEMO_PRIMARY_PROFILE;
-    }
     try {
       const { data: existingProfiles, error } = await supabase
         .from('family_members')
@@ -50,10 +50,16 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (existingProfiles && existingProfiles.length > 0) {
-        const primary = existingProfiles[0];
+        const primary = existingProfiles.find(m => m.relationship === 'Self') || existingProfiles[0];
         setCurrentFamilyMember(primary);
-        setIsOnboarded(!!primary.onboarding_completed);
+        setIsOnboarded(currentUser.id === DEMO_USER_ID ? true : !!primary.onboarding_completed);
         return primary;
+      }
+
+      if (currentUser.id === DEMO_USER_ID || currentUser.id === 'demo-caregiver-judge-01') {
+        setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
+        setIsOnboarded(true);
+        return DEMO_PRIMARY_PROFILE;
       }
 
       // Provision primary profile
@@ -99,17 +105,36 @@ export const AuthProvider = ({ children }) => {
         const isDemo = localStorage.getItem('dosiq_demo_mode') === 'true';
         if (isDemo) {
           const isDemoOnboarded = localStorage.getItem('dosiq_demo_onboarded') === 'true';
-          const savedProfiles = localStorage.getItem('dosiq_demo_profiles');
-          let parsedSelf = DEMO_PRIMARY_PROFILE;
-          if (savedProfiles) {
-            try {
-              const list = JSON.parse(savedProfiles);
-              if (list && list[0]) parsedSelf = list[0];
-            } catch (_) {}
+          // Try getting real active Supabase session first
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
+          if (currentSession && (currentSession.user.id === DEMO_USER_ID || currentSession.user.email === DEMO_USER_EMAIL)) {
+            setUser(currentSession.user);
+            setSession(currentSession);
+            await ensurePrimaryProfile(currentSession.user);
+            setIsOnboarded(isDemoOnboarded);
+            setLoading(false);
+            return;
           }
+          // Authenticate with genuine demo credentials
+          try {
+            const { data: authData } = await supabase.auth.signInWithPassword({
+              email: DEMO_USER_EMAIL,
+              password: DEMO_USER_PASSWORD,
+            });
+            if (authData?.user && authData?.session) {
+              setUser(authData.user);
+              setSession(authData.session);
+              await ensurePrimaryProfile(authData.user);
+              setIsOnboarded(isDemoOnboarded);
+              setLoading(false);
+              return;
+            }
+          } catch (_) {}
+
+          // In-memory fallback
           setUser(DEMO_USER);
           setSession({ user: DEMO_USER, access_token: 'demo-token' });
-          setCurrentFamilyMember(parsedSelf);
+          setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
           setIsOnboarded(isDemoOnboarded);
           setLoading(false);
           return;
@@ -210,24 +235,41 @@ export const AuthProvider = ({ children }) => {
   };
 
   // 1-Click Demo Login for Hackathon Judges & Evaluators (Bypasses OTP, email, and passwords)
-  const signInAsDemo = async ({ startOnboarding = true } = {}) => {
+  const signInAsDemo = async ({ startOnboarding = false } = {}) => {
     try {
       localStorage.setItem('dosiq_demo_mode', 'true');
-      setUser(DEMO_USER);
-      setSession({ user: DEMO_USER, access_token: 'demo-token' });
+
+      // Attempt genuine Supabase Auth sign in for Demo account
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: DEMO_USER_EMAIL,
+        password: DEMO_USER_PASSWORD,
+      });
+
+      if (!error && data?.user && data?.session) {
+        setUser(data.user);
+        setSession(data.session);
+        await ensurePrimaryProfile(data.user);
+      } else {
+        console.warn('Supabase demo sign-in note (using client fallback):', error?.message);
+        setUser(DEMO_USER);
+        setSession({ user: DEMO_USER, access_token: 'demo-token' });
+        setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
+      }
 
       if (startOnboarding) {
         localStorage.removeItem('dosiq_demo_onboarded');
-        setCurrentFamilyMember({ ...DEMO_PRIMARY_PROFILE, onboarding_completed: false });
         setIsOnboarded(false);
       } else {
         localStorage.setItem('dosiq_demo_onboarded', 'true');
-        setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
         setIsOnboarded(true);
       }
-      return { user: DEMO_USER, session: { user: DEMO_USER } };
+      return { user: data?.user || DEMO_USER, session: data?.session || { user: DEMO_USER } };
     } catch (err) {
       console.error('Error signing in as demo:', err);
+      setUser(DEMO_USER);
+      setSession({ user: DEMO_USER, access_token: 'demo-token' });
+      setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
+      setIsOnboarded(!startOnboarding);
     }
   };
 
@@ -236,9 +278,9 @@ export const AuthProvider = ({ children }) => {
     if (!user) throw new Error('Not authenticated');
 
     // Demo Mode fast path
-    if (user.id === DEMO_USER.id) {
+    if (user.id === DEMO_USER_ID || user.id === 'demo-caregiver-judge-01') {
       const demoSelf = {
-        id: 'demo-self-01',
+        id: currentFamilyMember?.id || 'demo-self-01',
         user_id: user.id,
         name: primary.name?.trim() || 'Alex Sharma',
         relationship: 'Self',
@@ -249,6 +291,11 @@ export const AuthProvider = ({ children }) => {
         night_dose_time: (primary.doseTime?.night || '20:00') + ':00',
         onboarding_completed: true,
       };
+
+      // Keep Telegram configuration local to this browser so each judge pairs their own phone
+      if (primary.telegram_username?.trim()) {
+        localStorage.setItem('dosiq_demo_telegram_username', primary.telegram_username.trim());
+      }
 
       const formattedFamily = (familyMembers || []).map((m, idx) => ({
         id: `demo-family-${idx + 1}`,
@@ -344,6 +391,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('dosiq_demo_mode');
     localStorage.removeItem('dosiq_demo_onboarded');
     localStorage.removeItem('dosiq_demo_profiles');
+    localStorage.removeItem('dosiq_demo_telegram_username');
     setUser(null);
     setSession(null);
     setCurrentFamilyMember(null);

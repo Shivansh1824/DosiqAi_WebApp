@@ -11,7 +11,7 @@
 import { normalizeBiomarkerName } from './biomarkerUtils.js';
 
 // ─── Standard Clinical Reference Database (Web Standard Benchmarks) ───────────
-export const CLINICAL_REFERENCE_BENCHMARKS = {
+const CLINICAL_REFERENCE_BENCHMARKS = {
   // Vitamins & Minerals
   'Vitamin D (25-OH)': {
     min: 30.0,

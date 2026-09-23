@@ -9,7 +9,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 import { MobileUploadView } from './components/dashboard/MobileUploadView';
 
-export function App() {
+function App() {
   const isMobileUpload = typeof window !== 'undefined' && window.location.search.includes('mobile_upload=true');
 
   if (isMobileUpload) {

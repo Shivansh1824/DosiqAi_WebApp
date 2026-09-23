@@ -18,7 +18,7 @@ export const generateSyncSessionId = () => {
  * @param {string} [mimeType] - e.g. 'application/pdf' or 'image/jpeg'
  * @returns {Promise<{ path: string, fullPath: string }>}
  */
-export const uploadFileToVault = async (userId, fileBlob, fileName, mimeType = 'application/pdf') => {
+const uploadFileToVault = async (userId, fileBlob, fileName, mimeType = 'application/pdf') => {
   if (!userId) throw new Error('User ID is required for vault storage');
 
   const cleanName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -42,55 +42,6 @@ export const uploadFileToVault = async (userId, fileBlob, fileName, mimeType = '
     console.warn('Vault storage exception (handled):', err);
     return { path: filePath, fullPath: `medical-vault/${filePath}` };
   }
-};
-
-/**
- * Creates and persists a document record into Supabase public.documents table.
- */
-export const createDocumentRecord = async ({
-  userId,
-  familyMemberId,
-  type,
-  patientName,
-  diagnosis,
-  issuedBy,
-  visitDate,
-  cloudFileKey = null,
-  localFilePath = null,
-  pageCount = 1,
-  aiAnalysisStatus = 'pending',
-}) => {
-  if (!userId) {
-    throw new Error('User ID is required to persist document');
-  }
-
-  const payload = {
-    user_id: userId,
-    family_member_id: familyMemberId || null,
-    type: type || 'Prescription',
-    patient_name: patientName || 'Patient',
-    diagnosis: diagnosis || (type === 'Blood Test' ? 'Complete Diagnostic & Lab Panel' : 'Clinical Prescription Record'),
-    issued_by: issuedBy || (type === 'Blood Test' ? 'Clinical Diagnostic Laboratory' : 'Consulting Physician, MD'),
-    visit_date: visitDate || new Date().toISOString().split('T')[0],
-    cloud_file_key: cloudFileKey,
-    local_file_path: localFilePath,
-    ai_analysis_status: aiAnalysisStatus,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  const { data, error } = await supabase
-    .from('documents')
-    .insert([payload])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error inserting document in Supabase:', error);
-    throw error;
-  }
-
-  return { ...data, page_count: pageCount };
 };
 
 /**

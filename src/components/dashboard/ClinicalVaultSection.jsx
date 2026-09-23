@@ -22,64 +22,6 @@ const DOC_COLOR = {
 
 const ALL_TYPES = ['All', 'Prescription', 'Blood Test', 'Scan', 'Discharge Summary'];
 
-// ─── Demo extraction animation state ─────────────────────────────────────────
-
-const EXTRACTION_STAGES = [
-  'Detecting clinical document structure...',
-  'Transcribing handwritten doctor script...',
-  'Extracting medications, dosages & timing...',
-  'Running drug-drug interaction shield...',
-  'Finalizing clinical directives & care loop...',
-];
-
-const SampleExtractionFlow = ({ type = 'Prescription', onComplete }) => {
-  const [stage, setStage] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setStage(prev => {
-        if (prev < EXTRACTION_STAGES.length - 1) {
-          return prev + 1;
-        } else {
-          clearInterval(timer);
-          setTimeout(() => onComplete?.(), 400);
-          return prev;
-        }
-      });
-    }, 450);
-
-    return () => clearInterval(timer);
-  }, [onComplete]);
-
-  return (
-    <div className="bg-gradient-to-br from-emerald-950 to-teal-900 text-white rounded-2xl p-5 border border-emerald-700/60 shadow-lg flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-emerald-400 animate-pulse" />
-          <span className="text-xs font-bold text-emerald-200 uppercase tracking-wider">
-            AI Clinical Analysis Engine
-          </span>
-        </div>
-        <span className="text-xs font-mono text-emerald-400">
-          Stage {stage + 1}/{EXTRACTION_STAGES.length}
-        </span>
-      </div>
-
-      <p className="text-sm font-semibold text-white">
-        {EXTRACTION_STAGES[stage]}
-      </p>
-
-      {/* Progress bar */}
-      <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-700"
-          style={{ width: `${Math.round(((stage + 1) / EXTRACTION_STAGES.length) * 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-};
-
 // ─── Document Card ────────────────────────────────────────────────────────────
 
 const DocCard = ({ doc, onClick }) => {
@@ -217,45 +159,10 @@ const DocCard = ({ doc, onClick }) => {
 
 export const ClinicalVaultSection = ({ documents = [], onUpload, onDocumentAdded, onDocumentClick }) => {
   const [activeFilter, setActiveFilter] = useState('All');
-  const [extractingType, setExtractingType] = useState(null);
-  const [extractionDone, setExtractionDone] = useState({ rx: false, lab: false });
 
   const filtered = activeFilter === 'All'
     ? documents
     : documents.filter(d => d.type === activeFilter);
-
-  const handleSample = (type) => {
-    if (extractingType) return;
-    setExtractingType(type);
-  };
-
-  const handleExtractionComplete = (type) => {
-    setExtractingType(null);
-    setExtractionDone(prev => ({ ...prev, [type]: true }));
-
-    const isRx = type === 'rx';
-    const sampleFileName = isRx ? 'Sample_Prescription_Cardiology.jpg' : '2019-08-18 Whole body Test 2.pdf';
-    const sampleJsonFileName = isRx ? 'Alex Sharma - Cardiac Follow-up Prescription - 21 Sep 2026' : 'Alex Sharma - Comprehensive Metabolic & Lipid Panel - 21 Sep 2026';
-    const sampleDoctor = isRx ? 'Dr. R. Mehta, MD (Cardiology)' : 'Dr. S. K. Gupta, MD (Pathologist)';
-    const sampleClinic = isRx ? 'Apollo Heart & Clinical Institute' : 'Metropolis Healthcare Labs';
-    const sampleDiagnosis = isRx ? 'Essential Hypertension & Cardiac Care' : 'Complete Metabolic & Lipid Profile';
-
-    onDocumentAdded?.({
-      id: `doc_${Date.now()}`,
-      type: isRx ? 'Prescription' : 'Blood Test',
-      file_name: sampleFileName,
-      local_file_path: sampleFileName,
-      ai_file_name: sampleJsonFileName,
-      diagnosis: sampleDiagnosis,
-      doctor: sampleDoctor,
-      clinic: sampleClinic,
-      hospital: sampleClinic,
-      date: new Date().toISOString().split('T')[0],
-      verified: true,
-      badge: isRx ? 'Rx Decoded' : 'Lab Analyzed',
-      ai_status: 'completed',
-    });
-  };
 
   return (
     <section id="vault-section" className="flex flex-col gap-5">

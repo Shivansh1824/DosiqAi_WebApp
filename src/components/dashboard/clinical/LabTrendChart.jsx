@@ -7,7 +7,7 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 
 // ─── Custom Recharts Tooltip ──────────────────────────────────────────────────
 
-export const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 shadow-2xl">

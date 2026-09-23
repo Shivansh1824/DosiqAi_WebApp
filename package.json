@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:bot": "node test-telegram-bot.js"
+    "bot": "node scripts/telegramBotService.js"
   },
   "dependencies": {
     "@google/genai": "^2.23.0",

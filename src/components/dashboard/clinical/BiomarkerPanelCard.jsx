@@ -4,7 +4,7 @@ import { BiomarkerRangeGauge } from './BiomarkerRangeGauge';
 
 // ─── Severity configuration ──────────────────────────────────────────────────
 
-export const SEVERITY = {
+const SEVERITY = {
   normal:     { bg: 'bg-emerald-50',  border: 'border-emerald-200', text: 'text-emerald-700', dot: 'bg-emerald-500',  label: 'Normal'     },
   borderline: { bg: 'bg-amber-50',    border: 'border-amber-200',   text: 'text-amber-700',   dot: 'bg-amber-500',    label: 'Borderline'  },
   high:       { bg: 'bg-rose-50',     border: 'border-rose-200',    text: 'text-rose-700',    dot: 'bg-rose-500',     label: 'High'        },
@@ -12,7 +12,7 @@ export const SEVERITY = {
   critical:   { bg: 'bg-red-100',     border: 'border-red-400',     text: 'text-red-800',     dot: 'bg-red-600',      label: 'Critical'    },
 };
 
-export const getSeverityConfig = (metric) => {
+const getSeverityConfig = (metric) => {
   if (metric.severity && SEVERITY[metric.severity]) return SEVERITY[metric.severity];
   return metric.is_abnormal ? SEVERITY.high : SEVERITY.normal;
 };
