@@ -3,12 +3,15 @@ import {
   ArrowLeft, FlaskConical, Brain, Activity, Code2,
   Eye, Calendar, User, AlertTriangle, CheckCircle2,
   Loader2, Lightbulb, Printer, FileText, Stethoscope,
-  Layers,
+  Layers, SlidersHorizontal,
 } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { BiomarkerPanelCard, MetricRow } from './BiomarkerPanelCard';
 import { TrendChart } from './LabTrendChart';
+import { LabRangeChartsView } from './LabRangeChartsView';
+import { LabRangeHighlightsOverview } from './LabRangeHighlightsOverview';
+import { LabAIIntelligenceView } from './LabAIIntelligenceView';
 import { DocumentPreviewModal } from './DocumentPreviewModal';
 import { normalizeBiomarkerName, resolveClinicalReportDate } from '../../../lib/biomarkerUtils';
 
@@ -121,6 +124,11 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
           { y: 0, opacity: 1, duration: 0.35, stagger: 0.08, ease: 'power2.out', delay: 0.22 }
         );
         gsap.fromTo(
+          '.gsap-range-card',
+          { scale: 0.96, y: 14, opacity: 0 },
+          { scale: 1, y: 0, opacity: 1, duration: 0.35, stagger: 0.06, ease: 'power2.out', delay: 0.25 }
+        );
+        gsap.fromTo(
           '.gsap-metric-row',
           { x: -10, opacity: 0 },
           { x: 0, opacity: 1, duration: 0.25, stagger: 0.04, ease: 'power1.out', delay: 0.28 }
@@ -135,6 +143,12 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
           '.gsap-metric-row',
           { x: -8, opacity: 0 },
           { x: 0, opacity: 1, duration: 0.25, stagger: 0.025, ease: 'power1.out', delay: 0.22 }
+        );
+      } else if (activeTab === 'ranges') {
+        gsap.fromTo(
+          '.gsap-range-card',
+          { scale: 0.96, y: 16, opacity: 0 },
+          { scale: 1, y: 0, opacity: 1, duration: 0.35, stagger: 0.05, ease: 'power2.out', delay: 0.12 }
         );
       } else if (activeTab === 'trends') {
         gsap.fromTo(
@@ -203,6 +217,12 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
           <p className="text-sm text-slate-700 leading-relaxed font-medium">{reportData.clinical_narrative}</p>
         </div>
       )}
+
+      {/* Featured Clinical Range Gauges */}
+      <LabRangeHighlightsOverview
+        panels={panels}
+        onViewAllRanges={() => setActiveTab('ranges')}
+      />
 
       {/* Abnormal highlights strip */}
       {totalAbnormal > 0 && (
@@ -292,68 +312,18 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
   // ─── Tab: AI Intelligence ─────────────────────────────────────────────────
 
   const renderAI = () => (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="gsap-ai-card bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col gap-2 transition-all hover:shadow-md">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Analysis Confidence</span>
-          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full ${confidencePct >= 90 ? 'bg-gradient-to-r from-emerald-500 to-teal-500' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
-              style={{ width: `${confidencePct}%` }}
-            />
-          </div>
-          <span className="text-lg font-black text-emerald-700">{confidencePct}%</span>
-        </div>
-        <div className="gsap-ai-card bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center gap-3 transition-all hover:shadow-md">
-          <Eye className="w-5 h-5 text-sky-500 shrink-0" />
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Scan Clarity</p>
-            <p className="text-sm font-black text-slate-900 capitalize">{meta?.scan_clarity || 'Clear'}</p>
-          </div>
-        </div>
-        <div className="gsap-ai-card bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center gap-3 transition-all hover:shadow-md">
-          <FlaskConical className="w-5 h-5 text-violet-500 shrink-0" />
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Lab Identified</p>
-            <p className="text-sm font-black text-slate-900">{reportData?.lab_name || 'Lab'}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="gsap-ai-card bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <Brain className="w-5 h-5 text-emerald-600" />
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">Dosiq AI Clinical Reasoning Trace</h3>
-        </div>
-        {common?.summary && (
-          <p className="text-sm font-bold text-slate-800 leading-relaxed">{common.summary}</p>
-        )}
-        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 text-xs text-slate-700 leading-relaxed font-mono">
-          {reasoning || `Extraction Engine: Dosiq AI Lab Pathology Intelligence
-Document Type: ${extraction?.document_type || 'medical_report'}
-Image Clarity: ${meta?.scan_clarity || 'Clear'}
-Confidence: ${confidencePct}%
-Panels Extracted: ${panels.length}
-Total Tests: ${totalTests}
-Abnormalities Found: ${totalAbnormal}`}
-        </div>
-      </div>
-
-      <div className="gsap-ai-card bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h4 className="text-sm font-black text-slate-900">Developer & Clinical JSON Audit</h4>
-          <p className="text-xs text-slate-500 mt-0.5">View the full structured payload extracted by the AI pipeline.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowJsonModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm active:scale-95"
-        >
-          <Code2 className="w-3.5 h-3.5 text-emerald-400" />
-          Inspect JSON Payload
-        </button>
-      </div>
-    </div>
+    <LabAIIntelligenceView
+      confidencePct={confidencePct}
+      meta={meta}
+      reportData={reportData}
+      common={common}
+      reasoning={reasoning}
+      extraction={extraction}
+      panels={panels}
+      totalTests={totalTests}
+      totalAbnormal={totalAbnormal}
+      onInspectJson={() => setShowJsonModal(true)}
+    />
   );
 
   return (
@@ -525,10 +495,11 @@ Abnormalities Found: ${totalAbnormal}`}
             {/* Tabs */}
             <div className="flex gap-2 mt-6 pt-4 border-t border-slate-100 overflow-x-auto scrollbar-hide">
               {[
-                { key: 'overview',  icon: Layers,      label: 'Overview'           },
-                { key: 'panels',    icon: FlaskConical, label: 'Biomarker Panels'   },
-                { key: 'trends',    icon: Activity,     label: 'Trend Charts'       },
-                { key: 'ai',        icon: Brain,        label: 'AI Intelligence'    },
+                { key: 'overview',  icon: Layers,            label: 'Overview'           },
+                { key: 'panels',    icon: FlaskConical,      label: 'Biomarker Panels'   },
+                { key: 'ranges',    icon: SlidersHorizontal, label: 'Range Charts'       },
+                { key: 'trends',    icon: Activity,          label: 'Trend Charts'       },
+                { key: 'ai',        icon: Brain,             label: 'AI Intelligence'    },
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -551,6 +522,7 @@ Abnormalities Found: ${totalAbnormal}`}
           <div className="gsap-report-tab">
             {activeTab === 'overview' && renderOverview()}
             {activeTab === 'panels'   && renderPanels()}
+            {activeTab === 'ranges'   && <LabRangeChartsView panels={panels} />}
             {activeTab === 'trends'   && renderTrends()}
             {activeTab === 'ai'       && renderAI()}
           </div>

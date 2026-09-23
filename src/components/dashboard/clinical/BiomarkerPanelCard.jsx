@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FlaskConical, ChevronRight } from 'lucide-react';
+import { BiomarkerRangeGauge } from './BiomarkerRangeGauge';
 
 // ─── Severity configuration ──────────────────────────────────────────────────
 
@@ -24,35 +25,42 @@ export const MetricRow = ({ metric }) => {
   const displayVal = isNaN(numVal) ? metric.value : numVal;
 
   return (
-    <div className={`gsap-metric-row flex items-center justify-between gap-3 p-3.5 rounded-xl border ${sev.bg} ${sev.border} transition-all hover:shadow-sm`}>
-      <div className="flex items-center gap-2.5 flex-1 min-w-0">
-        <span className={`w-2 h-2 rounded-full shrink-0 ${sev.dot}`} />
-        <div className="min-w-0">
-          <p className="text-xs font-black text-slate-900 truncate">{metric.test_name}</p>
-          {metric.method && (
-            <p className="text-[10px] text-slate-400 font-medium">{metric.method}</p>
-          )}
+    <div className={`gsap-metric-row flex flex-col gap-2 p-3.5 rounded-xl border ${sev.bg} ${sev.border} transition-all hover:shadow-sm`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${sev.dot}`} />
+          <div className="min-w-0">
+            <p className="text-xs font-black text-slate-900 truncate">{metric.test_name}</p>
+            {metric.method && (
+              <p className="text-[10px] text-slate-400 font-medium">{metric.method}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Value */}
+          <div className="text-right">
+            <p className={`text-sm font-black tabular-nums ${sev.text}`}>
+              {displayVal} <span className="text-[10px] font-bold text-slate-400">{metric.unit}</span>
+            </p>
+          </div>
+
+          {/* Reference Range */}
+          <div className="text-right hidden sm:block">
+            <p className="text-[10px] text-slate-400 font-medium">Reference</p>
+            <p className="text-[11px] text-slate-600 font-bold whitespace-nowrap">{metric.reference_range || '—'}</p>
+          </div>
+
+          {/* Severity Badge */}
+          <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${sev.bg} ${sev.border} ${sev.text} shrink-0`}>
+            {sev.label}
+          </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-4 shrink-0">
-        {/* Value */}
-        <div className="text-right">
-          <p className={`text-sm font-black tabular-nums ${sev.text}`}>
-            {displayVal} <span className="text-[10px] font-bold text-slate-400">{metric.unit}</span>
-          </p>
-        </div>
-
-        {/* Reference Range */}
-        <div className="text-right hidden sm:block">
-          <p className="text-[10px] text-slate-400 font-medium">Reference</p>
-          <p className="text-[11px] text-slate-600 font-bold whitespace-nowrap">{metric.reference_range || '—'}</p>
-        </div>
-
-        {/* Severity Badge */}
-        <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${sev.bg} ${sev.border} ${sev.text} shrink-0`}>
-          {sev.label}
-        </span>
+      {/* Graphical Range Spectrum Bar */}
+      <div className="pt-1.5 border-t border-slate-200/50">
+        <BiomarkerRangeGauge metric={metric} mode="compact" animate={false} />
       </div>
     </div>
   );
