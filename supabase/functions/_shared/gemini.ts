@@ -11,23 +11,37 @@ export async function generateClinicalAI({
   base64Data,
   mimeType,
   candidateKeys,
+  candidateModels,
 }: {
   prompt: string;
-  base64Data: string;
-  mimeType: string;
+  base64Data?: string;
+  mimeType?: string;
   candidateKeys: string[];
+  candidateModels?: string[];
 }): Promise<any> {
   const validKeys = candidateKeys.filter((k) => !!k && k.trim().length > 0);
   if (validKeys.length === 0) {
     throw new Error('No valid Gemini API keys found in Edge Function environment.');
   }
 
+  const modelsToTry = candidateModels && candidateModels.length > 0 ? candidateModels : CANDIDATE_MODELS;
   let lastError: any = null;
 
   for (const apiKey of validKeys) {
-    for (const model of CANDIDATE_MODELS) {
+    for (const model of modelsToTry) {
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+        const parts: any[] = [{ text: prompt }];
+        if (base64Data && mimeType) {
+          parts.push({
+            inline_data: {
+              mime_type: mimeType,
+              data: base64Data,
+            },
+          });
+        }
+
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -35,15 +49,7 @@ export async function generateClinicalAI({
             contents: [
               {
                 role: 'user',
-                parts: [
-                  { text: prompt },
-                  {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: base64Data,
-                    },
-                  },
-                ],
+                parts,
               },
             ],
             generationConfig: {
