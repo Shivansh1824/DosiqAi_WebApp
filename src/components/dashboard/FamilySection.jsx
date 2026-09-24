@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   UserPlus, Users, Settings, CheckCircle2, Crown,
   Phone, Clock, Send,
 } from 'lucide-react';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import { FamilyMemberModal } from '../onboarding/FamilyMemberModal';
 import { ProfileSettingsModal } from './ProfileSettingsModal';
+import { KpiCard } from './KpiCard';
+
+gsap.registerPlugin(useGSAP);
 
 const CATEGORY_COLORS = {
   'Self':     { bg: 'bg-emerald-50',  text: 'text-emerald-600', border: 'border-emerald-200', gradient: 'from-emerald-400 to-teal-500' },
@@ -33,10 +38,32 @@ const ProfileCard = ({ profile, isActive, onSelect, onOpenSettings }) => {
     ? { 'preset-1': '👨‍⚕️', 'preset-2': '👩‍⚕️', 'preset-3': '🧑‍💼', 'preset-4': '👴', 'preset-5': '👩', 'preset-6': '🧑', 'preset-7': '👦', 'preset-8': '👧' }[profile.avatar]
     : profile.emoji;
 
+  const handleMouseEnter = (e) => {
+    gsap.to(e.currentTarget, {
+      y: -4,
+      scale: 1.015,
+      duration: 0.22,
+      ease: 'power2.out',
+      boxShadow: '0 16px 32px -8px rgba(15, 23, 42, 0.12)',
+    });
+  };
+
+  const handleMouseLeave = (e) => {
+    gsap.to(e.currentTarget, {
+      y: 0,
+      scale: 1,
+      duration: 0.2,
+      ease: 'power2.out',
+      boxShadow: isActive ? '0 10px 25px -5px rgba(15, 23, 42, 0.08)' : '0 1px 3px 0 rgba(0, 0, 0, 0.04)',
+    });
+  };
+
   return (
     <div
       onClick={() => onSelect(profile)}
-      className={`relative cursor-pointer flex flex-col p-5 rounded-3xl transition-all duration-300 ${
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={`family-profile-card relative cursor-pointer flex flex-col p-5 rounded-3xl transition-all duration-300 ${
         isActive
           ? 'bg-white shadow-xl shadow-slate-900/10 border-2 border-slate-900 scale-[1.01] z-10 ring-4 ring-slate-900/5'
           : 'bg-white border-2 border-slate-100 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5'
@@ -172,6 +199,28 @@ export const FamilySection = ({
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
+  const containerRef = useRef(null);
+
+  const totalMembers = profiles.length;
+  const linkedCount = profiles.filter(p => p.telegram_linked || p.telegram_username).length;
+  const primaryName = profiles.find(p => p.relationship === 'Self')?.name?.split(' ')[0] || 'Caregiver';
+
+  useGSAP(() => {
+    if (!containerRef.current) return;
+    gsap.fromTo(
+      '.family-profile-card',
+      { y: 18, opacity: 0, scale: 0.98 },
+      {
+        y: 0,
+        opacity: 1,
+        scale: 1,
+        duration: 0.35,
+        stagger: 0.06,
+        ease: 'power3.out',
+        overwrite: 'auto',
+      }
+    );
+  }, { dependencies: [profiles.length], scope: containerRef });
 
   const handleAddMember = async (payload) => {
     if (onAddMember) {
@@ -206,15 +255,43 @@ export const FamilySection = ({
         
         <button 
           onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-sm font-bold shadow-md shadow-slate-900/10 transition-all"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-sm font-bold shadow-md shadow-slate-900/10 transition-all cursor-pointer"
         >
           <UserPlus className="w-4 h-4" />
           Add Family Member
         </button>
       </div>
 
-      {/* Bento Grid for Profiles */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+      {/* Family Stats Strip with Rolling Counter */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <KpiCard
+          label="Family Profiles"
+          value={totalMembers}
+          icon={Users}
+          colorClass="text-indigo-600"
+          bgClass="bg-indigo-50"
+          sub="Registered dossiers"
+        />
+        <KpiCard
+          label="Telegram Linked"
+          value={linkedCount}
+          icon={Send}
+          colorClass="text-emerald-600"
+          bgClass="bg-emerald-50"
+          sub="Two-Way Care Loop"
+        />
+        <KpiCard
+          label="Primary Dossier"
+          value={primaryName}
+          icon={Crown}
+          colorClass="text-amber-600"
+          bgClass="bg-amber-50"
+          sub="Self Caregiver"
+        />
+      </div>
+
+      {/* Bento Grid for Profiles with GSAP Stagger */}
+      <div ref={containerRef} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {profiles.map(p => (
           <ProfileCard
             key={p.id}

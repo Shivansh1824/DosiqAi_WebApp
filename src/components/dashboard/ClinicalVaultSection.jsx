@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   FileText, FlaskConical, Scan, BookOpen,
-  Zap, CheckCircle2, Clock, Filter, Download, Stethoscope
+  Zap, CheckCircle2, Clock, Filter, Download, Stethoscope, AlertTriangle
 } from 'lucide-react';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
+import { KpiCard } from './KpiCard';
+
+gsap.registerPlugin(useGSAP);
 
 // ─── Doc type config ──────────────────────────────────────────────────────────
 
@@ -75,14 +80,41 @@ const DocCard = ({ doc, onClick }) => {
     ? new Date(doc.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
     : '—';
 
+  // GSAP micro-lift
+  const handleMouseEnter = (e) => {
+    gsap.to(e.currentTarget, {
+      y: -3,
+      scale: 1.012,
+      duration: 0.22,
+      ease: 'power2.out',
+      boxShadow: '0 14px 28px -6px rgba(15, 23, 42, 0.09)',
+    });
+    const icon = e.currentTarget.querySelector('.doc-icon-wrap');
+    if (icon) gsap.to(icon, { scale: 1.12, rotation: 5, duration: 0.2, ease: 'back.out(2)' });
+  };
+
+  const handleMouseLeave = (e) => {
+    gsap.to(e.currentTarget, {
+      y: 0,
+      scale: 1,
+      duration: 0.2,
+      ease: 'power2.out',
+      boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.04)',
+    });
+    const icon = e.currentTarget.querySelector('.doc-icon-wrap');
+    if (icon) gsap.to(icon, { scale: 1, rotation: 0, duration: 0.2, ease: 'power2.out' });
+  };
+
   return (
     <div 
-      className={`flex flex-col justify-between gap-3.5 p-4 rounded-2xl bg-white border ${color.border} hover:shadow-md transition-all duration-200 group cursor-pointer`}
+      className={`doc-card flex flex-col justify-between gap-3.5 p-4 rounded-2xl bg-white border ${color.border} shadow-2xs group cursor-pointer transition-colors duration-150`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onClick={() => onClick?.(doc)}
     >
       <div className="flex flex-col gap-2.5">
         <div className="flex items-start justify-between gap-2">
-          <div className={`w-9 h-9 rounded-xl ${color.bg} ${color.icon} flex items-center justify-center shrink-0 border ${color.border}`}>
+          <div className={`doc-icon-wrap w-9 h-9 rounded-xl ${color.bg} ${color.icon} flex items-center justify-center shrink-0 border ${color.border} transition-transform`}>
             <Icon className="w-4 h-4" />
           </div>
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -159,46 +191,129 @@ const DocCard = ({ doc, onClick }) => {
 
 export const ClinicalVaultSection = ({ documents = [], onUpload, onDocumentAdded, onDocumentClick }) => {
   const [activeFilter, setActiveFilter] = useState('All');
+  const containerRef = useRef(null);
+
+  const totalCount = documents.length;
+  const rxCount = documents.filter(d => d.type === 'Prescription').length;
+  const labCount = documents.filter(d => d.type === 'Blood Test').length;
+  const abnormalCount = documents.reduce((acc, d) => acc + (d.ai_analysis_result?.report_data?.total_abnormalities || 0), 0);
 
   const filtered = activeFilter === 'All'
     ? documents
     : documents.filter(d => d.type === activeFilter);
 
+  // Staggered cascade entrance on filter / document change
+  useGSAP(() => {
+    if (!containerRef.current) return;
+    gsap.fromTo(
+      '.doc-card',
+      { y: 16, opacity: 0, scale: 0.98 },
+      {
+        y: 0,
+        opacity: 1,
+        scale: 1,
+        duration: 0.32,
+        stagger: 0.05,
+        ease: 'power3.out',
+        overwrite: 'auto',
+      }
+    );
+  }, { dependencies: [activeFilter, filtered.length], scope: containerRef });
+
+  const getTypeCount = (type) => {
+    if (type === 'All') return totalCount;
+    return documents.filter(d => d.type === type).length;
+  };
+
   return (
-    <section id="vault-section" className="flex flex-col gap-5">
+    <section id="vault-section" ref={containerRef} className="flex flex-col gap-5">
       {/* Section header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <FileText className="w-4 h-4 text-slate-600" />
+            <FileText className="w-4 h-4 text-emerald-600" />
             Clinical Vault
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             {documents.length} document{documents.length !== 1 ? 's' : ''} secured · End-to-end encrypted
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={onUpload}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Upload Document</span>
+        </button>
       </div>
 
-      {/* Filter pills */}
+      {/* KPI Stats Strip with Rolling Counter */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        <KpiCard
+          label="Total Dossiers"
+          value={totalCount}
+          icon={FileText}
+          colorClass="text-slate-700"
+          bgClass="bg-slate-100"
+          sub="Encrypted Vault"
+        />
+        <KpiCard
+          label="Prescriptions"
+          value={rxCount}
+          icon={FileText}
+          colorClass="text-emerald-600"
+          bgClass="bg-emerald-50"
+          sub="Decoded (Rx)"
+        />
+        <KpiCard
+          label="Diagnostic Labs"
+          value={labCount}
+          icon={FlaskConical}
+          colorClass="text-sky-600"
+          bgClass="bg-sky-50"
+          sub="Blood & Panels"
+        />
+        <KpiCard
+          label="Abnormal Flags"
+          value={abnormalCount}
+          icon={abnormalCount > 0 ? AlertTriangle : CheckCircle2}
+          colorClass={abnormalCount > 0 ? "text-rose-600" : "text-emerald-600"}
+          bgClass={abnormalCount > 0 ? "bg-rose-50" : "bg-emerald-50"}
+          sub={abnormalCount > 0 ? "Out of range" : "All Normal"}
+        />
+      </div>
+
+      {/* Filter pills with Counts */}
       <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
         <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-        {ALL_TYPES.map(type => (
-          <button
-            key={type}
-            type="button"
-            onClick={() => setActiveFilter(type)}
-            className={`shrink-0 px-3 py-1 rounded-full text-xs font-semibold border transition-all duration-150 ${
-              activeFilter === type
-                ? 'bg-slate-900 text-white border-slate-700'
-                : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
-            }`}
-          >
-            {type}
-          </button>
-        ))}
+        {ALL_TYPES.map(type => {
+          const count = getTypeCount(type);
+          const isSelected = activeFilter === type;
+          return (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setActiveFilter(type)}
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all duration-150 cursor-pointer ${
+                isSelected
+                  ? 'bg-slate-900 text-white border-slate-700 shadow-xs'
+                  : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-800'
+              }`}
+            >
+              <span>{type}</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Document grid */}
+      {/* Document grid with GSAP Cascade */}
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map(doc => (
@@ -207,8 +322,8 @@ export const ClinicalVaultSection = ({ documents = [], onUpload, onDocumentAdded
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-10 gap-3 text-center bg-white border border-slate-100 rounded-2xl">
-          <FileText className="w-8 h-8 text-slate-200" />
-          <p className="text-sm font-bold text-slate-700">No documents yet</p>
+          <FileText className="w-8 h-8 text-slate-300" />
+          <p className="text-sm font-bold text-slate-700">No {activeFilter === 'All' ? 'documents' : activeFilter} found</p>
           <p className="text-xs text-slate-400 max-w-xs">Upload prescriptions, lab reports, scans, or discharge summaries to build your family health vault.</p>
           <button type="button" onClick={onUpload} className="mt-1 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors">
             Upload Document

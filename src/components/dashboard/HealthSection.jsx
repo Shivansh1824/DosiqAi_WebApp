@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { HeartPulse, Pill, Activity, Send, CheckCircle2, AlertTriangle, Sparkles } from 'lucide-react';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import { ActiveRegimenSection } from './ActiveRegimenSection';
 import { ConflictShieldBanner } from './ConflictShieldBanner';
 import { LabTrendsSection }     from './LabTrendsSection';
 import { CareLoopSection }      from './CareLoopSection';
 import { QuickProfileSwitcher } from './QuickProfileSwitcher';
+
+gsap.registerPlugin(useGSAP);
 
 export const HealthSection = ({ 
   profiles, 
@@ -21,10 +25,20 @@ export const HealthSection = ({
   onActionMedicine
 }) => {
   const [activeTab, setActiveTab] = useState('medicines'); // 'medicines' | 'biomarkers'
+  const tabContentRef = useRef(null);
   const firstName = activeProfile?.name?.split(' ')[0] || activeProfile?.relationship || 'this profile';
 
   const totalMedsCount = medications.length;
   const activeMedsCount = medications.filter(m => m.status === 'active' || m.is_synced).length;
+
+  useGSAP(() => {
+    if (!tabContentRef.current) return;
+    gsap.fromTo(
+      tabContentRef.current,
+      { opacity: 0, y: 12 },
+      { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out' }
+    );
+  }, { dependencies: [activeTab], scope: tabContentRef });
 
   return (
     <div className="flex flex-col gap-6">
@@ -52,7 +66,7 @@ export const HealthSection = ({
         <button
           type="button"
           onClick={() => setActiveTab('medicines')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
             activeTab === 'medicines'
               ? 'bg-white text-emerald-950 shadow-sm shadow-slate-200 border border-slate-200/80'
               : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
@@ -70,7 +84,7 @@ export const HealthSection = ({
         <button
           type="button"
           onClick={() => setActiveTab('biomarkers')}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all ${
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
             activeTab === 'biomarkers'
               ? 'bg-white text-sky-950 shadow-sm shadow-slate-200 border border-slate-200/80'
               : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
@@ -86,47 +100,50 @@ export const HealthSection = ({
         </button>
       </div>
 
-      {/* ─── SECTION 1: MEDICINES & CARE LOOP ──────────────────────────────── */}
-      {activeTab === 'medicines' && (
-        <>
-          {/* Conflict Shield Banner */}
-          <ConflictShieldBanner conflicts={conflicts} />
+      {/* Tab Content with GSAP Transition */}
+      <div ref={tabContentRef}>
+        {/* ─── SECTION 1: MEDICINES & CARE LOOP ──────────────────────────────── */}
+        {activeTab === 'medicines' && (
+          <div className="flex flex-col gap-6">
+            {/* Conflict Shield Banner */}
+            <ConflictShieldBanner conflicts={conflicts} />
 
-          {/* 2-Column Bento: Left (2/3) Regimen & Prescriptions, Right (1/3) Care Loop */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 flex flex-col gap-6">
-              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-                <ActiveRegimenSection 
-                  medications={medications}
-                  onSyncMedicine={onSyncMedicine}
-                  onCompleteMedicine={onCompleteMedicine}
-                  onAction={onActionMedicine}
-                />
+            {/* 2-Column Bento: Left (2/3) Regimen & Prescriptions, Right (1/3) Care Loop */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 flex flex-col gap-6">
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                  <ActiveRegimenSection 
+                    medications={medications}
+                    onSyncMedicine={onSyncMedicine}
+                    onCompleteMedicine={onCompleteMedicine}
+                    onAction={onActionMedicine}
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Right: Care Loop attached ONLY to Medicines */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm sticky top-24">
-                <CareLoopSection 
-                  profile={activeProfile}
-                  medications={medications.filter(m => m.status === 'active' || m.is_synced)}
-                  events={events}
-                />
+              {/* Right: Care Loop attached ONLY to Medicines */}
+              <div className="lg:col-span-1">
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm sticky top-24">
+                  <CareLoopSection 
+                    profile={activeProfile}
+                    medications={medications.filter(m => m.status === 'active' || m.is_synced)}
+                    events={events}
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </>
-      )}
+        )}
 
-      {/* ─── SECTION 2: BIOMARKERS (Care Loop is NOT attached here) ──────────── */}
-      {activeTab === 'biomarkers' && (
-        <div className="flex flex-col gap-6">
-          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-          <LabTrendsSection biomarkers={biomarkers} documents={reportDocs} />
+        {/* ─── SECTION 2: BIOMARKERS (Care Loop is NOT attached here) ──────────── */}
+        {activeTab === 'biomarkers' && (
+          <div className="flex flex-col gap-6">
+            <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+              <LabTrendsSection biomarkers={biomarkers} documents={reportDocs} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
