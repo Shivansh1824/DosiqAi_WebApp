@@ -315,7 +315,7 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
   // ─── Tab: Trend Charts ────────────────────────────────────────────────────
 
   const renderTrends = () => {
-    const trendEntries = Object.entries(trendMap).filter(([, v]) => v.data.length > 0);
+    const trendEntries = Object.entries(trendMap).filter(([, v]) => v.data.length > 1);
     return (
       <div className="flex flex-col gap-4">
         <div>

@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ArrowDown, ArrowUp, ShieldCheck, Info } from 'lucide-react';
+import { ArrowDown, ArrowUp, ShieldCheck, AlertTriangle, Info } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { parseBiomarkerRange } from '../../../lib/referenceRanges';
@@ -57,15 +57,37 @@ export const BiomarkerRangeGauge = ({
   }, { dependencies: [model.pinPct, model.patientVal], scope: containerRef });
 
   if (!model.hasValidRange) {
+    if (mode === 'compact') return null;
+
     // Fallback for metrics without parseable range
     return (
-      <div className={`p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3 ${className}`}>
-        <div>
-          <p className="text-xs font-black text-slate-800">{metric.test_name}</p>
-          <p className="text-[11px] text-slate-500 font-medium">Reference: {model.rawRange || 'Clinical observation'}</p>
+      <div className={`bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-sm flex flex-col justify-center gap-2 h-full ${className}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                {metric.category_name || 'Biomarker'}
+              </span>
+            </div>
+            <h4 className="text-base font-black text-slate-900 tracking-tight leading-snug">
+              {metric.test_name}
+            </h4>
+            {metric.method && (
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Method: {metric.method}</p>
+            )}
+          </div>
+          <div className="text-right shrink-0">
+            <div className="flex items-baseline justify-end gap-1">
+              <span className="text-2xl font-black tracking-tight text-slate-800 break-words max-w-[120px] text-right">
+                {model.patientVal || '-'}
+              </span>
+              {model.unit && <span className="text-xs font-bold text-slate-500">{model.unit}</span>}
+            </div>
+          </div>
         </div>
-        <div className="text-right">
-          <span className="text-sm font-black text-slate-900">{model.patientVal} {model.unit}</span>
+        <div className="mt-2 bg-slate-50 rounded-xl p-3 border border-slate-100 flex items-center justify-between">
+           <span className="text-xs font-semibold text-slate-500">Reference / Observation</span>
+           <span className="text-xs font-bold text-slate-700">{model.rawRange || 'N/A'}</span>
         </div>
       </div>
     );
@@ -100,7 +122,13 @@ export const BiomarkerRangeGauge = ({
           >
             <div
               className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow-md flex items-center justify-center ${
-                model.zone === 'normal' ? 'bg-emerald-500' : model.zone === 'low' ? 'bg-amber-500' : 'bg-rose-500'
+                model.zone === 'normal'
+                  ? 'bg-emerald-500'
+                  : model.zone === 'borderline'
+                  ? 'bg-amber-500'
+                  : model.zone === 'low'
+                  ? 'bg-amber-500'
+                  : 'bg-rose-500'
               }`}
             />
           </div>
@@ -111,10 +139,20 @@ export const BiomarkerRangeGauge = ({
 
   // ─── Full Mode (Used in Range Charts section) ───────────────────────────────
   const isNormal = model.zone === 'normal';
+  const isBorderline = model.zone === 'borderline';
   const isLow = model.zone === 'low';
   const isHigh = model.zone === 'high';
 
-  const badgeConfig = isNormal
+  const badgeConfig = isBorderline
+    ? {
+        label: 'Borderline Limit',
+        bg: 'bg-amber-50',
+        border: 'border-amber-200',
+        text: 'text-amber-800',
+        dot: 'bg-amber-500',
+        icon: AlertTriangle,
+      }
+    : isNormal
     ? {
         label: 'Optimal / Within Range',
         bg: 'bg-emerald-50',
@@ -174,7 +212,13 @@ export const BiomarkerRangeGauge = ({
           <div className="flex items-baseline justify-end gap-1">
             <span
               className={`text-2xl font-black tabular-nums tracking-tight ${
-                isNormal ? 'text-emerald-700' : isLow ? 'text-amber-600' : 'text-rose-600'
+                isBorderline
+                  ? 'text-amber-600'
+                  : isNormal
+                  ? 'text-emerald-700'
+                  : isLow
+                  ? 'text-amber-600'
+                  : 'text-rose-600'
               }`}
             >
               {model.patientVal}
@@ -208,82 +252,94 @@ export const BiomarkerRangeGauge = ({
         </div>
 
         {/* Track Bar with Zones & Pin */}
-        <div className="relative pt-6 pb-2 px-1">
-          {/* Continuum Track */}
-          <div
-            ref={trackRef}
-            className="relative w-full h-3.5 rounded-full bg-slate-100 overflow-hidden shadow-inner flex"
-          >
-            {/* Low Zone (Left of Normal) */}
+        <div className="pt-10 pb-2 px-1">
+          <div className="relative">
+            {/* Continuum Track */}
             <div
-              className="h-full bg-gradient-to-r from-amber-200/80 to-amber-100"
-              style={{ width: `${model.normalLeftPct}%` }}
-              title={`Low Zone (< ${model.min})`}
-            />
-
-            {/* Optimal / Normal Target Zone */}
-            <div
-              className="h-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-400 shadow-sm relative"
-              style={{ width: `${model.normalWidthPct}%` }}
-              title={`Normal Zone (${model.min} - ${model.max})`}
+              ref={trackRef}
+              className="relative w-full h-3.5 rounded-full bg-slate-100 overflow-hidden shadow-inner flex"
             >
-              <div className="absolute inset-0 bg-white/10" />
+              {/* Low Zone (Left of Normal) */}
+              <div
+                className="h-full bg-gradient-to-r from-amber-200/80 to-amber-100"
+                style={{ width: `${model.normalLeftPct}%` }}
+                title={`Low Zone (< ${model.min})`}
+              />
+
+              {/* Optimal / Normal Target Zone */}
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-400 shadow-sm relative"
+                style={{ width: `${model.normalWidthPct}%` }}
+                title={`Normal Zone (${model.min} - ${model.max})`}
+              >
+                <div className="absolute inset-0 bg-white/10" />
+              </div>
+
+              {/* High Zone (Right of Normal) */}
+              <div
+                className="h-full bg-gradient-to-r from-rose-200 to-rose-300"
+                style={{ width: `${Math.max(0, 100 - (model.normalLeftPct + model.normalWidthPct))}%` }}
+                title={`High Zone (> ${model.max})`}
+              />
             </div>
 
-            {/* High Zone (Right of Normal) */}
+            {/* Normal Zone Boundary Markers */}
             <div
-              className="h-full bg-gradient-to-r from-rose-200 to-rose-300"
-              style={{ width: `${Math.max(0, 100 - (model.normalLeftPct + model.normalWidthPct))}%` }}
-              title={`High Zone (> ${model.max})`}
+              className="absolute top-1/2 -translate-y-1/2 h-8 w-0.5 bg-emerald-700/80 z-10 pointer-events-none"
+              style={{ left: `calc(${model.normalLeftPct}% + 4px)` }}
             />
-          </div>
-
-          {/* Normal Zone Boundary Markers */}
-          <div
-            className="absolute top-6 bottom-2 w-0.5 bg-emerald-700/80 z-10 pointer-events-none"
-            style={{ left: `calc(${model.normalLeftPct}% + 4px)` }}
-          />
-          <div
-            className="absolute top-6 bottom-2 w-0.5 bg-emerald-700/80 z-10 pointer-events-none"
-            style={{ left: `calc(${model.normalLeftPct + model.normalWidthPct}% + 4px)` }}
-          />
-
-          {/* Animated Patient Value Needle Pin */}
-          <div
-            ref={pinRef}
-            className="absolute top-0 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none"
-            style={{ left: animate ? '0%' : `${model.pinPct}%` }}
-          >
-            {/* Top Value Pill */}
             <div
-              className={`px-2 py-0.5 rounded-md text-[10px] font-black text-white shadow-md flex items-center gap-1 mb-0.5 whitespace-nowrap ${
-                isNormal
-                  ? 'bg-emerald-600'
-                  : isLow
-                  ? 'bg-amber-600 ring-2 ring-amber-300'
-                  : 'bg-rose-600 ring-2 ring-rose-300'
-              }`}
+              className="absolute top-1/2 -translate-y-1/2 h-8 w-0.5 bg-emerald-700/80 z-10 pointer-events-none"
+              style={{ left: `calc(${model.normalLeftPct + model.normalWidthPct}% + 4px)` }}
+            />
+
+            {/* Animated Patient Value Needle Pin */}
+            <div
+              ref={pinRef}
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 z-20 flex flex-col items-center pointer-events-none"
+              style={{ left: animate ? '0%' : `${model.pinPct}%` }}
             >
-              <span>{model.patientVal}</span>
+              <div className="absolute bottom-full flex flex-col items-center mb-1">
+                {/* Top Value Pill */}
+                <div
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-black text-white shadow-md flex items-center gap-1 mb-0.5 whitespace-nowrap ${
+                    isNormal
+                      ? 'bg-emerald-600'
+                      : isLow
+                      ? 'bg-amber-600 ring-2 ring-amber-300'
+                      : 'bg-rose-600 ring-2 ring-rose-300'
+                  }`}
+                >
+                  <span>{model.patientVal}</span>
+                </div>
+
+                {/* Downward indicator triangle */}
+                <div
+                  className={`w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] ${
+                    isBorderline
+                      ? 'border-t-amber-600'
+                      : isNormal
+                      ? 'border-t-emerald-600'
+                      : isLow
+                      ? 'border-t-amber-600'
+                      : 'border-t-rose-600'
+                  }`}
+                />
+              </div>
+
+              {/* Marker Dot on the Track */}
+              <div
+                className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow-lg relative z-30 ${
+                  isBorderline
+                    ? 'bg-amber-500 ring-2 ring-amber-300 animate-pulse'
+                    : isNormal
+                    ? 'bg-emerald-500'
+                    : isLow
+                    ? 'bg-amber-500 animate-pulse'
+                    : 'bg-rose-500 animate-pulse'
+                }`}
+              />
             </div>
-
-            {/* Downward indicator triangle */}
-            <div
-              className={`w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] ${
-                isNormal ? 'border-t-emerald-600' : isLow ? 'border-t-amber-600' : 'border-t-rose-600'
-              }`}
-            />
-
-            {/* Marker Dot on the Track */}
-            <div
-              className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow-lg mt-0.5 ${
-                isNormal
-                  ? 'bg-emerald-500'
-                  : isLow
-                  ? 'bg-amber-500 animate-pulse'
-                  : 'bg-rose-500 animate-pulse'
-              }`}
-            />
           </div>
         </div>
 
@@ -317,7 +373,9 @@ export const BiomarkerRangeGauge = ({
         <div className="shrink-0">
           <span
             className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${
-              isNormal
+              isBorderline
+                ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                : isNormal
                 ? 'bg-emerald-50 text-emerald-800'
                 : isLow
                 ? 'bg-amber-50 text-amber-800'

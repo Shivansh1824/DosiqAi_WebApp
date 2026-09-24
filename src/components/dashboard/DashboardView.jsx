@@ -88,29 +88,13 @@ export const DashboardView = () => {
       // 2. Format profiles with vitals
       const raw = membersRes.data || [];
       let mergedList = [];
-      const isDemoUser = user.id === 'demo-caregiver-judge-01' || user.id === 'f60a2cc4-0b10-48fa-899e-1ac1e8d360c5';
-      if (raw.length === 0 && isDemoUser) {
-        const savedDemoProfiles = localStorage.getItem('dosiq_demo_profiles');
-        let parsed = null;
-        if (savedDemoProfiles) {
-          try {
-            parsed = JSON.parse(savedDemoProfiles);
-          } catch (_) {}
-        }
-        mergedList = (parsed && parsed.length > 0) ? parsed : [
-          { id: 'demo-self-01', name: 'Alex Sharma', relationship: 'Self', onboarding_completed: true },
-          { id: 'demo-dad-01', name: 'Rajesh Sharma', relationship: 'Father', age: '64', onboarding_completed: true, avatar_url: 'preset-4' },
-          { id: 'demo-mom-01', name: 'Sunita Sharma', relationship: 'Mother', age: '61', onboarding_completed: true, avatar_url: 'preset-5' },
-        ];
-      } else {
-        const selfMembers = raw.filter(m => m.relationship === 'Self');
-        const primarySelf = selfMembers.find(m => m.onboarding_completed) ||
-                            selfMembers.find(m => m.telegram_username) ||
-                            selfMembers.find(m => m.phone_number) ||
-                            selfMembers[0];
-        const dependents = raw.filter(m => m.relationship !== 'Self');
-        mergedList = primarySelf ? [primarySelf, ...dependents] : dependents;
-      }
+      const selfMembers = raw.filter(m => m.relationship === 'Self');
+      const primarySelf = selfMembers.find(m => m.onboarding_completed) ||
+                          selfMembers.find(m => m.telegram_username) ||
+                          selfMembers.find(m => m.phone_number) ||
+                          selfMembers[0];
+      const dependents = raw.filter(m => m.relationship !== 'Self');
+      mergedList = primarySelf ? [primarySelf, ...dependents] : dependents;
 
       // Check if current browser session has a local Telegram pairing for this demo tester
       const localDemoTelegram = localStorage.getItem('dosiq_demo_telegram_username');

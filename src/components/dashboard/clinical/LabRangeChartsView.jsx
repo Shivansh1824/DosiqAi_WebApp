@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { SlidersHorizontal, AlertTriangle, CheckCircle2, Search, Filter } from 'lucide-react';
+import { SlidersHorizontal, AlertTriangle, CheckCircle2, Search, Filter, Activity } from 'lucide-react';
 import { BiomarkerRangeGauge } from './BiomarkerRangeGauge';
+import { parseBiomarkerRange } from '../../../lib/referenceRanges';
 
 /**
  * LabRangeChartsView
@@ -9,18 +10,27 @@ import { BiomarkerRangeGauge } from './BiomarkerRangeGauge';
  * along their lower bound (Min), optimal bracket, and upper bound (Max) spectrums.
  */
 export const LabRangeChartsView = ({ panels = [] }) => {
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'abnormal' | 'normal'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'abnormal' | 'borderline' | 'normal'
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Flatten all metrics from categories with panel metadata attached
+  // Flatten all metrics from categories with panel metadata attached & compute range model
   const allMetrics = useMemo(() => {
     const list = [];
     panels.forEach(panel => {
       (panel.metrics || []).forEach(m => {
+        const rangeModel = parseBiomarkerRange(m);
+        const isBorderline = rangeModel.zone === 'borderline';
+        const isAttention = Boolean(m.is_abnormal || rangeModel.zone === 'low' || rangeModel.zone === 'high' || isBorderline);
+        const isOptimal = rangeModel.zone === 'normal' && !m.is_abnormal && !isBorderline;
+
         list.push({
           ...m,
           category_name: m.category_name || panel.category_name || 'General Biomarker',
+          rangeModel,
+          isBorderline,
+          isAttention,
+          isOptimal,
         });
       });
     });
@@ -39,9 +49,10 @@ export const LabRangeChartsView = ({ panels = [] }) => {
   // Filtered metrics
   const filteredMetrics = useMemo(() => {
     return allMetrics.filter(m => {
-      // Status filter
-      if (statusFilter === 'abnormal' && !m.is_abnormal) return false;
-      if (statusFilter === 'normal' && m.is_abnormal) return false;
+      // Status filter: 'all' | 'abnormal' | 'borderline' | 'normal'
+      if (statusFilter === 'abnormal' && !m.isAttention) return false;
+      if (statusFilter === 'borderline' && !m.isBorderline) return false;
+      if (statusFilter === 'normal' && !m.isOptimal) return false;
 
       // Category filter
       if (selectedCategory !== 'all' && m.category_name !== selectedCategory) return false;
@@ -58,8 +69,9 @@ export const LabRangeChartsView = ({ panels = [] }) => {
     });
   }, [allMetrics, statusFilter, selectedCategory, searchQuery]);
 
-  const totalAbnormal = allMetrics.filter(m => m.is_abnormal).length;
-  const totalNormal = allMetrics.length - totalAbnormal;
+  const totalBorderline = allMetrics.filter(m => m.isBorderline).length;
+  const totalAttention = allMetrics.filter(m => m.isAttention).length;
+  const totalOptimal = allMetrics.filter(m => m.isOptimal).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -94,14 +106,22 @@ export const LabRangeChartsView = ({ panels = [] }) => {
           <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
             <span className="text-emerald-800 font-bold">Optimal:</span>
-            <span className="font-black text-emerald-900">{totalNormal}</span>
+            <span className="font-black text-emerald-900">{totalOptimal}</span>
           </div>
 
-          {totalAbnormal > 0 && (
+          {totalBorderline > 0 && (
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-amber-50 border border-amber-200 text-xs">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+              <span className="text-amber-800 font-bold">Borderline:</span>
+              <span className="font-black text-amber-900">{totalBorderline}</span>
+            </div>
+          )}
+
+          {totalAttention > 0 && (
             <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-rose-50 border border-rose-200 text-xs">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
               <span className="text-rose-800 font-bold">Attention:</span>
-              <span className="font-black text-rose-900">{totalAbnormal}</span>
+              <span className="font-black text-rose-900">{totalAttention}</span>
             </div>
           )}
         </div>
@@ -133,8 +153,23 @@ export const LabRangeChartsView = ({ panels = [] }) => {
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
-            Attention ({totalAbnormal})
+            Attention ({totalAttention})
           </button>
+
+          {totalBorderline > 0 && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter('borderline')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all ${
+                statusFilter === 'borderline'
+                  ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/20'
+                  : 'text-amber-700 hover:bg-amber-50'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5" />
+              Borderline ({totalBorderline})
+            </button>
+          )}
 
           <button
             type="button"
@@ -146,7 +181,7 @@ export const LabRangeChartsView = ({ panels = [] }) => {
             }`}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Optimal ({totalNormal})
+            Optimal ({totalOptimal})
           </button>
         </div>
 

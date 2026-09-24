@@ -408,18 +408,39 @@ export const parseBiomarkerRange = (metric) => {
   let zone = 'normal';
   let deltaFromThreshold = 0;
   let deltaLabel = 'Within Target';
+  let isBorderline = false;
+
+  const EPSILON = 1e-4;
 
   if (!isNaN(patientVal)) {
-    if (patientVal < min) {
+    const isAtMin = Math.abs(patientVal - min) < EPSILON;
+    const isAtMax = Math.abs(patientVal - max) < EPSILON;
+
+    if (patientVal < min - EPSILON) {
       zone = 'low';
       deltaFromThreshold = patientVal - min; // negative number
       const formattedDiff = Math.abs(deltaFromThreshold).toFixed(1);
       deltaLabel = `${formattedDiff} ${metric?.unit || ''} below min normal`;
-    } else if (patientVal > max) {
+    } else if (patientVal > max + EPSILON) {
       zone = 'high';
       deltaFromThreshold = patientVal - max; // positive number
       const formattedDiff = Math.abs(deltaFromThreshold).toFixed(1);
       deltaLabel = `${formattedDiff} ${metric?.unit || ''} above max normal`;
+    } else if (isAtMax) {
+      zone = 'borderline';
+      isBorderline = true;
+      deltaFromThreshold = 0;
+      deltaLabel = `Borderline (At upper limit of ${max} ${metric?.unit || ''})`.trim();
+    } else if (isAtMin) {
+      zone = 'borderline';
+      isBorderline = true;
+      deltaFromThreshold = 0;
+      deltaLabel = `Borderline (At lower limit of ${min} ${metric?.unit || ''})`.trim();
+    } else if (metric?.severity === 'borderline') {
+      zone = 'borderline';
+      isBorderline = true;
+      deltaFromThreshold = 0;
+      deltaLabel = 'Borderline Range';
     } else {
       zone = 'normal';
       deltaLabel = 'Optimal / Within Range';
@@ -470,7 +491,8 @@ export const parseBiomarkerRange = (metric) => {
     patientVal,
     unit: metric?.unit || benchmark?.unit || '',
     isAbnormal: metric?.is_abnormal || zone !== 'normal',
-    zone, // 'low' | 'normal' | 'high'
+    isBorderline,
+    zone, // 'low' | 'normal' | 'high' | 'borderline'
     deltaFromThreshold,
     deltaLabel,
     scaleMin,

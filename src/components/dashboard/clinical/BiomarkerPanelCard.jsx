@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FlaskConical, ChevronRight } from 'lucide-react';
 import { BiomarkerRangeGauge } from './BiomarkerRangeGauge';
+import { parseBiomarkerRange } from '../../../lib/referenceRanges';
 
 // ─── Severity configuration ──────────────────────────────────────────────────
 
@@ -14,12 +15,15 @@ const SEVERITY = {
 
 const getSeverityConfig = (metric) => {
   if (metric.severity && SEVERITY[metric.severity]) return SEVERITY[metric.severity];
+  const model = parseBiomarkerRange(metric);
+  if (model.zone === 'borderline') return SEVERITY.borderline;
   return metric.is_abnormal ? SEVERITY.high : SEVERITY.normal;
 };
 
 // ─── Single Metric Row ───────────────────────────────────────────────────────
 
 export const MetricRow = ({ metric }) => {
+  const model = parseBiomarkerRange(metric);
   const sev = getSeverityConfig(metric);
   const numVal = metric.numeric_value ?? parseFloat(metric.value);
   const displayVal = isNaN(numVal) ? metric.value : numVal;
@@ -59,9 +63,11 @@ export const MetricRow = ({ metric }) => {
       </div>
 
       {/* Graphical Range Spectrum Bar */}
-      <div className="pt-1.5 border-t border-slate-200/50">
-        <BiomarkerRangeGauge metric={metric} mode="compact" animate={false} />
-      </div>
+      {model.hasValidRange && (
+        <div className="pt-1.5 border-t border-slate-200/50">
+          <BiomarkerRangeGauge metric={metric} mode="compact" animate={false} />
+        </div>
+      )}
     </div>
   );
 };

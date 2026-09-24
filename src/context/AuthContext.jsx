@@ -56,11 +56,6 @@ export const AuthProvider = ({ children }) => {
         return primary;
       }
 
-      if (currentUser.id === DEMO_USER_ID || currentUser.id === 'demo-caregiver-judge-01') {
-        setCurrentFamilyMember(DEMO_PRIMARY_PROFILE);
-        setIsOnboarded(true);
-        return DEMO_PRIMARY_PROFILE;
-      }
 
       // Provision primary profile
       const primaryName = currentUser.user_metadata?.full_name ||
@@ -279,48 +274,12 @@ export const AuthProvider = ({ children }) => {
 
     // Demo Mode fast path
     if (user.id === DEMO_USER_ID || user.id === 'demo-caregiver-judge-01') {
-      const demoSelf = {
-        id: currentFamilyMember?.id || 'demo-self-01',
-        user_id: user.id,
-        name: primary.name?.trim() || 'Alex Sharma',
-        relationship: 'Self',
-        telegram_username: primary.telegram_username?.trim() || null,
-        avatar_url: primary.avatar || null,
-        morning_dose_time: (primary.doseTime?.morning || '08:00') + ':00',
-        afternoon_dose_time: (primary.doseTime?.afternoon || '14:00') + ':00',
-        night_dose_time: (primary.doseTime?.night || '20:00') + ':00',
-        onboarding_completed: true,
-      };
-
       // Keep Telegram configuration local to this browser so each judge pairs their own phone
       if (primary.telegram_username?.trim()) {
         localStorage.setItem('dosiq_demo_telegram_username', primary.telegram_username.trim());
       }
-
-      const formattedFamily = (familyMembers || []).map((m, idx) => ({
-        id: `demo-family-${idx + 1}`,
-        user_id: user.id,
-        name: m.name?.trim() || m.relationship,
-        relationship: m.relationship,
-        age: m.age || (m.relationship === 'Father' ? 64 : m.relationship === 'Mother' ? 61 : null),
-        telegram_username: m.telegram_username?.trim() || null,
-        avatar_url: m.avatar || null,
-        morning_dose_time: (m.doseTime?.morning || '08:00') + ':00',
-        afternoon_dose_time: (m.doseTime?.afternoon || '14:00') + ':00',
-        night_dose_time: (m.doseTime?.night || '20:00') + ':00',
-        onboarding_completed: true,
-      }));
-
-      const finalFamilyList = formattedFamily.length > 0 ? formattedFamily : [
-        { id: 'demo-dad-01', user_id: user.id, name: 'Rajesh Sharma', relationship: 'Father', age: 64, onboarding_completed: true, avatar_url: 'preset-4' },
-        { id: 'demo-mom-01', user_id: user.id, name: 'Sunita Sharma', relationship: 'Mother', age: 61, onboarding_completed: true, avatar_url: 'preset-5' },
-      ];
-
-      localStorage.setItem('dosiq_demo_profiles', JSON.stringify([demoSelf, ...finalFamilyList]));
       localStorage.setItem('dosiq_demo_onboarded', 'true');
-      setCurrentFamilyMember(demoSelf);
-      setIsOnboarded(true);
-      return;
+      // Proceed to save to Supabase below
     }
 
     // 1. Upsert the Self row with onboarding data
