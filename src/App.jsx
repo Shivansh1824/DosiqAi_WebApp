@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/auth/LoginView';
+import { LandingPage } from './components/landing/LandingPage';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { OnboardingView } from './components/onboarding/OnboardingView';
 import { Loader2 } from 'lucide-react';
@@ -21,6 +22,7 @@ function App() {
   }
 
   const { user, loading, isOnboarded } = useAuth();
+  const [showLanding, setShowLanding] = useState(true);
 
   return (
     <ErrorBoundary>
@@ -35,7 +37,11 @@ function App() {
           </div>
         </div>
       ) : !user ? (
-        <LoginView />
+        showLanding ? (
+          <LandingPage onStart={() => setShowLanding(false)} />
+        ) : (
+          <LoginView />
+        )
       ) : !isOnboarded ? (
         <OnboardingView />
       ) : (
