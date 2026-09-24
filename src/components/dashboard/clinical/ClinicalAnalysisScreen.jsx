@@ -15,7 +15,13 @@ import { DocumentPreviewModal } from './DocumentPreviewModal';
 
 gsap.registerPlugin(useGSAP);
 
-export const ClinicalAnalysisScreen = ({ doc, onBack, isExtracting = false }) => {
+export const ClinicalAnalysisScreen = ({
+  doc,
+  onBack,
+  isExtracting = false,
+  onStartMedicine,
+  onLogDose,
+}) => {
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'clinical' | 'directives' | 'reasoning'
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [showDocPreview, setShowDocPreview] = useState(false);
@@ -482,19 +488,22 @@ Drug Conflict Shield: ${interactionFlag ? 'Interaction Flagged' : 'All Clear'}`}
   const renderTelegramLoop = () => (
     <div className="pt-2">
       <TelegramPrescriptionSync
-        patientName={patient?.name || 'Patient'}
+        patientName={patient?.name || doc?.patient_name || 'Patient'}
         medicines={medicines}
         durationDays={durationDays}
         onConnect={async () => {
           // Auto-sync all medicines
           if (typeof onStartMedicine === 'function') {
             for (const med of medicines) {
-              if (med.status === 'unlinked' || !med.is_synced) {
-                await onStartMedicine(med);
-              }
+              await onStartMedicine({
+                ...med,
+                doc_id: doc?.id,
+                family_member_id: doc?.family_member_id || null,
+              });
             }
           }
         }}
+        onLogDose={onLogDose}
       />
     </div>
   );

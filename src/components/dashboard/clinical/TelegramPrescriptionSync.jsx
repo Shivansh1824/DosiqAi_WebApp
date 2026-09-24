@@ -4,7 +4,13 @@ import { TimePickerModal } from '../../onboarding/TimePickerModal';
 import { isMedicationSos, calculateDoseSchedule, formatTime12h } from '../../../lib/medicationScheduler';
 import { TELEGRAM_BOT_USERNAME, TELEGRAM_BOT_URL } from '../../../lib/telegramConfig';
 
-export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = [], durationDays = 3, onConnect = null }) => {
+export const TelegramPrescriptionSync = ({
+  patientName = 'Patient',
+  medicines = [],
+  durationDays = 3,
+  onConnect = null,
+  onLogDose = null,
+}) => {
   const [simulated, setSimulated] = useState(false);
   const [doseLogged, setDoseLogged] = useState(false);
   const [simulating, setSimulating] = useState(false);
@@ -93,8 +99,11 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
     setSimulated(true);
   };
 
-  const handleLogDose = (status) => {
+  const handleLogDose = async (status) => {
     setDoseLogged(status);
+    if (onLogDose) {
+      await onLogDose(status, morningMeds[0] || scheduledMeds[0] || medicines[0]);
+    }
   };
 
   const handleSaveSlotTime = (slot, newTime) => {

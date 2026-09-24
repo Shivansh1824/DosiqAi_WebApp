@@ -111,10 +111,12 @@ const CareLoopTracker = ({ profile, medications = [], events = [] }) => {
         body: JSON.stringify({
           action: 'checkin',
           patientName: profile?.name || 'Patient',
-          medicines: [
-            { name: 'Zyloric 200mg', strength: '200mg', food: 'After Food' },
-            { name: 'Rosovas 20mg', strength: '20mg', food: 'After Food' }
-          ],
+          medicines: medications && medications.length > 0
+            ? medications.map(m => ({ name: m.name || m.brand, strength: m.strength || '', food: m.food || 'After Food' }))
+            : [
+                { name: 'Susp. Moxclav (228.5)', strength: '228.5 mg', food: 'After Food' },
+                { name: 'Sup. Omnacortil', strength: '5ml', food: 'After Food' }
+              ],
           slotTimes: { night: '08:00' }
         })
       });

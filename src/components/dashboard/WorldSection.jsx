@@ -131,7 +131,7 @@ export const WorldSection = ({
   const isReport = extraction?.document_type === 'medical_report' || latestDoc?.type === 'Blood Test';
   const rxData = extraction?.prescription_data;
   const reportData = extraction?.report_data;
-  const extractedMeds = rxData?.medications || [];
+  const extractedMeds = rxData?.medicines || rxData?.medications || [];
   const extractedBiomarkers = reportData?.biomarkers || [];
 
   // Telegram Family List (Filtered to active person if single person selected)

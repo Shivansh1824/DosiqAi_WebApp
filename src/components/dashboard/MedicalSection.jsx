@@ -18,6 +18,8 @@ export const MedicalSection = ({
   initialDoc = null,
   onClearInitialDoc,
   onAnalysisStateChange,
+  onStartMedicine,
+  onLogDose,
 }) => {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [analysisDoc, setAnalysisDoc] = useState(initialDoc);
@@ -145,6 +147,8 @@ export const MedicalSection = ({
         doc={analysisDoc}
         onBack={handleBackFromAnalysis}
         isExtracting={analysisDoc?.isExtracting}
+        onStartMedicine={onStartMedicine}
+        onLogDose={onLogDose}
       />
     );
   }

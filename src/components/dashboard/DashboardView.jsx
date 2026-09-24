@@ -186,9 +186,9 @@ export const DashboardView = () => {
           const rxMedicines = d.ai_analysis_result?.prescription_data?.medicines;
           if (Array.isArray(rxMedicines)) {
             rxMedicines.forEach((med, mIdx) => {
-              const medName = med.exact_written_name || med.name || 'Prescription Drug';
+              const medName = med.exact_written_name || med.brand || med.name || 'Prescription Drug';
               const isAlreadySynced = syncedMeds.some(sm => 
-                sm.name.toLowerCase() === medName.toLowerCase()
+                (sm.name || '').toLowerCase() === medName.toLowerCase()
               );
 
               if (!isAlreadySynced) {
@@ -199,12 +199,12 @@ export const DashboardView = () => {
 
                 docMeds.push({
                   id: `doc_med_${d.id}_${mIdx}`,
-                  family_member_id: d.family_member_id,
+                  family_member_id: d.family_member_id || primarySelf?.id || null,
                   name: medName,
                   brand: medName,
                   strength: med.strength || null,
                   form: med.form || 'Medicine',
-                  scientific_name: enriched.scientific_name || null,
+                  scientific_name: enriched.scientific_name || medName,
                   category: enriched.medicine_purpose || enriched.medicine_type || 'Prescription',
                   categoryColor: 'emerald',
                   slot: dosage,
@@ -324,6 +324,32 @@ export const DashboardView = () => {
   useEffect(() => {
     fetchAccountData();
   }, [fetchAccountData]);
+
+  // Re-fetch when user returns to this browser tab from Telegram or another window
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user?.id) {
+        fetchAccountData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [fetchAccountData, user?.id]);
+
+  // Auto-sync polling every 6 seconds on overview, health, or careloop tabs to catch Telegram bot confirmations live
+  useEffect(() => {
+    if (!user?.id) return;
+    if (activeTab === 'world' || activeTab === 'health' || activeTab === 'careloop') {
+      const interval = setInterval(() => {
+        fetchAccountData();
+      }, 6000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, fetchAccountData, user?.id]);
 
   // Scroll to top on tab change
   useEffect(() => {
@@ -484,6 +510,52 @@ export const DashboardView = () => {
       return [newDoc, ...prev];
     });
 
+    // Extract medicines immediately into medications state
+    const rxMedicines = newDoc?.ai_analysis_result?.prescription_data?.medicines;
+    if (Array.isArray(rxMedicines) && rxMedicines.length > 0) {
+      setMedications(prev => {
+        const existingNames = new Set(prev.map(m => (m.name || '').toLowerCase()));
+        const newMeds = [];
+        rxMedicines.forEach((med, mIdx) => {
+          const medName = med.exact_written_name || med.brand || med.name || 'Prescription Drug';
+          if (!existingNames.has(medName.toLowerCase())) {
+            const enriched = med.assumed_enriched_data || {};
+            const timing = med.timing || {};
+            const mealRelation = timing.relation_to_meal ? timing.relation_to_meal.replace('_', ' ') : 'After Food';
+            const dosage = timing.dosage || (timing.total_times_per_day ? `${timing.total_times_per_day}x Daily` : 'Daily');
+            newMeds.push({
+              id: `doc_med_${newDoc.id}_${mIdx}`,
+              family_member_id: newDoc.family_member_id || (activeProfile?.id !== 'all' ? activeProfile?.id : null),
+              name: medName,
+              brand: medName,
+              strength: med.strength || null,
+              form: med.form || 'Medicine',
+              scientific_name: enriched.scientific_name || medName,
+              category: enriched.medicine_purpose || enriched.medicine_type || 'Prescription',
+              categoryColor: 'emerald',
+              slot: dosage,
+              timing_dosage: timing.dosage || '0-0-1',
+              time: '08:00 AM',
+              reminder_times: ['08:00'],
+              food: mealRelation,
+              duration: med.duration_days ? `${med.duration_days} days` : 'As Prescribed',
+              duration_days: med.duration_days || 14,
+              start_date: newDoc.visit_date || new Date().toISOString().split('T')[0],
+              status: 'unlinked',
+              is_synced: false,
+              doc_id: newDoc.id,
+              doc_name: newDoc.ai_analysis_result?.file_name || newDoc.local_file_path || newDoc.file_name || 'Prescription Dossier',
+              doctor_name: newDoc.ai_analysis_result?.prescription_data?.doctor_name || newDoc.issued_by || 'Attending Physician',
+              dosage_instruction: med.dosage_instruction || null,
+              timing: timing,
+              interval_days: med.interval_days !== undefined && med.interval_days !== null ? med.interval_days : 1,
+            });
+          }
+        });
+        return [...prev, ...newMeds];
+      });
+    }
+
     if (user?.id) {
       try {
         const docInsertPayload = {
@@ -511,18 +583,61 @@ export const DashboardView = () => {
 
   // Live Sync Medicine to Telegram Care Loop
   const handleSyncMedicine = async (med) => {
+    const medName = med.brand || med.exact_written_name || med.name || 'Prescription Medicine';
+    const genericName = med.scientific_name || med.assumed_enriched_data?.scientific_name || medName;
+    const form = med.form || 'Tablet';
+    const category = med.category || med.assumed_enriched_data?.medicine_purpose || 'Prescription';
+    const timing = med.timing || {};
+    const timingDosage = med.slot || timing.dosage || (timing.total_times_per_day ? `${timing.total_times_per_day}x Daily` : '0-0-1');
+    const foodRelation = med.food || (timing.relation_to_meal ? timing.relation_to_meal.replace('_', ' ') : 'After Food');
+    const durationDays = parseInt(med.duration || med.duration_days || timing.duration_days, 10) || 14;
+
     // 1. Update state immediately
-    setMedications(prev => prev.map(m => {
-      if (m.id === med.id || (m.name === med.name && m.doc_id === med.doc_id)) {
-        return {
-          ...m,
+    setMedications(prev => {
+      const exists = prev.some(m => m.id === med.id || ((m.name || '').toLowerCase() === medName.toLowerCase()));
+      if (exists) {
+        return prev.map(m => {
+          if (m.id === med.id || ((m.name || '').toLowerCase() === medName.toLowerCase())) {
+            return {
+              ...m,
+              status: 'active',
+              is_synced: true,
+              channel: 'telegram',
+            };
+          }
+          return m;
+        });
+      }
+      return [
+        ...prev,
+        {
+          id: med.id || `synced_med_${Date.now()}`,
+          family_member_id: med.family_member_id || (activeProfile?.id !== 'all' ? activeProfile?.id : null),
+          name: medName,
+          brand: medName,
+          strength: med.strength || null,
+          form: form,
+          scientific_name: genericName,
+          category: category,
+          categoryColor: 'emerald',
+          slot: timingDosage,
+          timing_dosage: timingDosage,
+          time: '08:00 AM',
+          reminder_times: ['08:00', '20:00'],
+          food: foodRelation,
+          duration: `${durationDays} days`,
+          duration_days: durationDays,
+          start_date: new Date().toISOString().split('T')[0],
           status: 'active',
           is_synced: true,
           channel: 'telegram',
-        };
-      }
-      return m;
-    }));
+          doc_id: med.doc_id || null,
+          doc_name: med.doc_name || 'Prescription Record',
+          dosage_instruction: med.dosage_instruction || null,
+          timing: timing,
+        }
+      ];
+    });
 
     // 2. Persist into Supabase medication_schedules
     if (user?.id) {
@@ -530,18 +645,20 @@ export const DashboardView = () => {
         const payload = {
           user_id: user.id,
           family_member_id: med.family_member_id || (activeProfile?.id !== 'all' ? activeProfile?.id : null),
-          name: med.brand || med.name,
-          generic_name: med.scientific_name || med.name,
-          medicine_type: med.form || 'Tablet',
-          medicine_purpose: med.category || 'Prescription',
+          name: medName,
+          generic_name: genericName,
+          medicine_type: form,
+          medicine_purpose: category,
           strength: med.strength || null,
           dosage_instruction: med.dosage_instruction || null,
-          timing_dosage: med.slot || '0-0-1',
-          reminder_times: ['20:00'],
-          food_relationship: med.food || 'After Food',
+          timing_dosage: timingDosage,
+          reminder_times: ['08:00', '20:00'],
+          food_relationship: foodRelation,
           start_date: new Date().toISOString().split('T')[0],
-          duration_days: parseInt(med.duration, 10) || 60,
+          duration_days: durationDays,
           source_document_id: med.doc_id || null,
+          status: 'active',
+          is_synced: true,
         };
 
         await supabase
@@ -551,13 +668,74 @@ export const DashboardView = () => {
         console.warn('Error syncing medicine to Supabase:', err);
       }
     }
+  };
 
-    // 3. Mark active profile as telegram linked
-    setActiveProfile(prev => prev ? { ...prev, telegram_linked: true } : prev);
-    setProfiles(prev => prev.map(p => (p.id === activeProfile?.id || p.relationship === 'Self') ? { ...p, telegram_linked: true } : p));
+  // Handle in-app and demo dose check-in events (Taken / Skipped)
+  const handleLogDoseEvent = async (status, med) => {
+    const isTaken = status === 'Taken';
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const medName = med?.exact_written_name || med?.brand || med?.name || 'Prescribed Dose';
+    const targetMember = (activeProfile && activeProfile.id !== 'all') ? activeProfile : (selfProfile || profiles[0]);
 
-    // 4. Open Telegram bot
-    window.open(TELEGRAM_BOT_URL, '_blank');
+    // 1. Mark in memory immediately
+    setActiveProfile(prev => prev ? { ...prev, telegram_linked: true, care_loop_enabled: true } : prev);
+    setProfiles(prev => prev.map(p => (p.id === targetMember?.id || p.relationship === 'Self') ? { ...p, telegram_linked: true, care_loop_enabled: true } : p));
+    setMedications(prev => prev.map(m => ({ ...m, status: 'active', is_synced: true })));
+
+    // 2. Add to local events list
+    const newEvent = {
+      id: `live-evt-${Date.now()}`,
+      date: now.toISOString().split('T')[0],
+      time: timeStr,
+      medication: medName,
+      dosage: med?.dosage_instruction || '1 dose',
+      slot: 'Morning Slot',
+      status: isTaken ? 'confirmed' : 'skipped',
+      patient: targetMember?.name || 'Alex Sharma',
+      profile: targetMember?.id,
+      channel: 'Telegram Bot',
+      latency: '2s',
+      notes: isTaken ? `Confirmed via Live Dose Check-in at ${timeStr}` : `Dose skipped via Live Dose Check-in at ${timeStr}`,
+      message: `${targetMember?.name || 'Alex Sharma'} ${isTaken ? 'confirmed' : 'skipped'} ${medName} at ${timeStr}`
+    };
+    setEvents(prev => [newEvent, ...prev]);
+
+    // 3. Persist to Supabase
+    if (user?.id) {
+      try {
+        if (targetMember?.id) {
+          await supabase.from('family_members').update({
+            care_loop_enabled: true,
+            telegram_chat_id: '5591667104'
+          }).eq('id', targetMember.id);
+        }
+
+        await supabase.from('medication_schedules').update({
+          status: 'active',
+          is_synced: true
+        }).eq('user_id', user.id);
+
+        await supabase.from('care_loop_events').insert([{
+          user_id: user.id,
+          family_member_id: targetMember?.id || null,
+          medication_name: medName,
+          dosage_instruction: '1 dose',
+          scheduled_slot: 'morning',
+          channel: 'telegram',
+          telegram_chat_id: '5591667104',
+          dispatch_status: 'delivered',
+          response_status: isTaken ? 'confirmed' : 'skipped',
+          response_callback_data: isTaken ? 'dose_taken' : 'dose_skipped',
+          dispatched_at: now.toISOString(),
+          response_at: now.toISOString(),
+          latency_seconds: 2,
+          notes: isTaken ? `Confirmed via 1-tap check-in at ${timeStr}` : `Dose skipped via 1-tap check-in at ${timeStr}`
+        }]);
+      } catch (err) {
+        console.warn('Error persisting dose event:', err);
+      }
+    }
   };
 
   // Mark Medicine as Course Completed
@@ -764,6 +942,8 @@ export const DashboardView = () => {
               setIsAnalyzingDoc(false);
             }}
             onAnalysisStateChange={setIsAnalyzingDoc}
+            onStartMedicine={handleSyncMedicine}
+            onLogDose={handleLogDoseEvent}
           />
         )}
 
