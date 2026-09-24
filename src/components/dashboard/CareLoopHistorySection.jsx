@@ -41,7 +41,7 @@ export const CareLoopHistorySection = ({
   const [showAllHistory, setShowAllHistory] = useState(false);
 
   const mainContainerRef = useRef(null);
-  const activeName = activeProfile?.name || 'Shivansh';
+  const activeName = activeProfile?.name || 'Member';
   const isLinked = !!(activeProfile?.telegram_linked || activeProfile?.telegram_chat_id || activeProfile?.telegram_username);
 
   const handleConnectBot = () => {

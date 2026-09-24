@@ -331,7 +331,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     // 3. Update Supabase auth metadata
-    await supabase.auth.updateUser({
+    const { data: authUpdateData } = await supabase.auth.updateUser({
       data: {
         full_name: primary.name.trim(),
         onboarding_completed: true,
@@ -339,6 +339,10 @@ export const AuthProvider = ({ children }) => {
         avatar_url: primary.avatar || null,
       },
     });
+
+    if (authUpdateData?.user) {
+      setUser(authUpdateData.user);
+    }
 
     // 4. Update local state — triggers App.jsx to render DashboardView
     setCurrentFamilyMember(updatedSelf);

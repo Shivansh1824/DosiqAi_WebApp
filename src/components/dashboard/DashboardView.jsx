@@ -43,7 +43,7 @@ const formatProfile = (m, memberVitals = {}) => {
 };
 
 export const DashboardView = () => {
-  const { user } = useAuth();
+  const { user, currentFamilyMember } = useAuth();
 
   // Navigation State
   const [activeTab, setActiveTab] = useState('world');
@@ -53,8 +53,12 @@ export const DashboardView = () => {
   const [isManualCollapsed, setIsManualCollapsed] = useState(false);
 
   // Real Database Data State
-  const [profiles, setProfiles] = useState([]);
-  const [activeProfile, setActiveProfile] = useState(null);
+  const [profiles, setProfiles] = useState(() => 
+    currentFamilyMember?.name ? [formatProfile(currentFamilyMember)] : []
+  );
+  const [activeProfile, setActiveProfile] = useState(() => 
+    currentFamilyMember?.name ? formatProfile(currentFamilyMember) : null
+  );
   const [documents, setDocuments] = useState([]);
   const [medications, setMedications] = useState([]);
   const [vitals, setVitals] = useState([]);
@@ -297,12 +301,12 @@ export const DashboardView = () => {
             dosage: e.dosage_instruction || 'As prescribed',
             slot: e.scheduled_slot ? `${e.scheduled_slot.charAt(0).toUpperCase() + e.scheduled_slot.slice(1)} Slot` : 'Night Slot',
             status: e.response_status || 'confirmed',
-            patient: primarySelf?.name || 'Shivansh',
+            patient: primarySelf?.name || user?.user_metadata?.full_name || 'Caregiver',
             profile: e.family_member_id || primarySelf?.id,
             channel: 'Telegram Bot',
             latency: e.latency_seconds ? `${e.latency_seconds}s` : '2s',
             notes: e.notes || 'Verified through Telegram Care Loop',
-            message: `${primarySelf?.name || 'Shivansh'} ${e.response_status === 'skipped' ? 'skipped' : 'confirmed'} ${e.medication_name || 'medication'} at ${e.dispatched_at ? new Date(e.dispatched_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '12:27 PM'}`
+            message: `${primarySelf?.name || user?.user_metadata?.full_name || 'Caregiver'} ${e.response_status === 'skipped' ? 'skipped' : 'confirmed'} ${e.medication_name || 'medication'} at ${e.dispatched_at ? new Date(e.dispatched_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '12:27 PM'}`
           }));
           setEvents(mappedEvents);
         }
