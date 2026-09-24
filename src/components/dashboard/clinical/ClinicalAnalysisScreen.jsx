@@ -485,6 +485,16 @@ Drug Conflict Shield: ${interactionFlag ? 'Interaction Flagged' : 'All Clear'}`}
         patientName={patient?.name || 'Patient'}
         medicines={medicines}
         durationDays={durationDays}
+        onConnect={async () => {
+          // Auto-sync all medicines
+          if (typeof onStartMedicine === 'function') {
+            for (const med of medicines) {
+              if (med.status === 'unlinked' || !med.is_synced) {
+                await onStartMedicine(med);
+              }
+            }
+          }
+        }}
       />
     </div>
   );

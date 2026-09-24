@@ -526,7 +526,7 @@ export const DashboardView = () => {
         const payload = {
           user_id: user.id,
           family_member_id: med.family_member_id || (activeProfile?.id !== 'all' ? activeProfile?.id : null),
-          name: med.name,
+          name: med.brand || med.name,
           generic_name: med.scientific_name || med.name,
           medicine_type: med.form || 'Tablet',
           medicine_purpose: med.category || 'Prescription',
@@ -787,9 +787,31 @@ export const DashboardView = () => {
             onProfileSelect={setActiveProfile}
             medications={profileMeds}
             events={events}
-            onConnectBot={() => {
+            onConnectBot={async () => {
               setActiveProfile(prev => prev ? { ...prev, telegram_linked: true } : prev);
               setProfiles(prev => prev.map(p => (p.id === activeProfile?.id || p.relationship === 'Self') ? { ...p, telegram_linked: true } : p));
+              
+              // Auto-sync all unlinked medicines to Supabase when they connect
+              const unlinkedMeds = profileMeds.filter(m => m.status === 'unlinked' || (!m.is_synced && m.status !== 'completed'));
+              for (const med of unlinkedMeds) {
+                await handleSyncMedicine(med);
+              }
+
+              // Ping the telegram bot backend to send the greeting
+              try {
+                await fetch('/api/send-telegram-reminder', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'greeting',
+                    patientName: activeProfile?.name || 'Patient',
+                    medicines: unlinkedMeds,
+                  })
+                });
+              } catch (e) {
+                console.warn('Could not dispatch Telegram greeting:', e);
+              }
+
               window.open(TELEGRAM_BOT_URL, '_blank');
             }}
           />

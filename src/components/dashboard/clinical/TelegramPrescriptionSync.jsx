@@ -4,7 +4,7 @@ import { TimePickerModal } from '../../onboarding/TimePickerModal';
 import { isMedicationSos, calculateDoseSchedule, formatTime12h } from '../../../lib/medicationScheduler';
 import { TELEGRAM_BOT_USERNAME, TELEGRAM_BOT_URL } from '../../../lib/telegramConfig';
 
-export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = [], durationDays = 3 }) => {
+export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = [], durationDays = 3, onConnect = null }) => {
   const [simulated, setSimulated] = useState(false);
   const [doseLogged, setDoseLogged] = useState(false);
   const [simulating, setSimulating] = useState(false);
@@ -56,6 +56,7 @@ export const TelegramPrescriptionSync = ({ patientName = 'Patient', medicines = 
 
   const handleOpenTelegram = async () => {
     try {
+      if (onConnect) await onConnect();
       fetch('/api/send-telegram-reminder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
