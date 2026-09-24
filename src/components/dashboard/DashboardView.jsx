@@ -170,7 +170,7 @@ export const DashboardView = () => {
         status: m.status || 'active',
         is_synced: true,
         doc_id: m.document_id || null,
-        doc_name: m.document_name || 'Active Regimen',
+        doc_name: m.document_name || 'Prescription Record',
         confirmedAt: null,
         channel: 'telegram',
       }));
@@ -730,6 +730,7 @@ export const DashboardView = () => {
             onNavigate={setActiveTab}
             onAddMember={handleAddMember}
             onDocumentAdded={handleDocumentAdded}
+            onStartMedicine={handleSyncMedicine}
             onViewDocument={(doc) => {
               if (doc?.ai_analysis_result) {
                 setDocuments(prev => prev.map(d => 
@@ -786,6 +787,11 @@ export const DashboardView = () => {
             onProfileSelect={setActiveProfile}
             medications={profileMeds}
             events={events}
+            onConnectBot={() => {
+              setActiveProfile(prev => prev ? { ...prev, telegram_linked: true } : prev);
+              setProfiles(prev => prev.map(p => (p.id === activeProfile?.id || p.relationship === 'Self') ? { ...p, telegram_linked: true } : p));
+              window.open(TELEGRAM_BOT_URL, '_blank');
+            }}
           />
         )}
 

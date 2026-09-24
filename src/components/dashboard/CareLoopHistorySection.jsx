@@ -31,6 +31,7 @@ export const CareLoopHistorySection = ({
   activeProfile = null,
   medications = [],
   events = [],
+  onConnectBot = null,
 }) => {
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const [selectedDate, setSelectedDate] = useState(todayStr);
@@ -41,6 +42,15 @@ export const CareLoopHistorySection = ({
 
   const mainContainerRef = useRef(null);
   const activeName = activeProfile?.name || 'Shivansh';
+  const isLinked = !!(activeProfile?.telegram_linked || activeProfile?.telegram_chat_id || activeProfile?.telegram_username);
+
+  const handleConnectBot = () => {
+    if (onConnectBot) {
+      onConnectBot();
+    } else {
+      window.open(TELEGRAM_BOT_URL, '_blank');
+    }
+  };
 
   // 7-day strip around today
   const dayStrip = useMemo(() => {
@@ -313,45 +323,63 @@ export const CareLoopHistorySection = ({
   return (
     <div ref={mainContainerRef} className="flex flex-col gap-6 max-w-6xl mx-auto w-full pb-20 animate-in fade-in duration-300">
       {/* ── 1. Top Header ── */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden hover:-translate-y-0.5 hover:shadow-md transition-all duration-300">
         <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-emerald-500/5 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex-1 min-w-0">
-          <div className="flex items-center gap-2.5 flex-wrap mb-2">
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
             <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200">
               <Send className="w-3.5 h-3.5 text-sky-600" />
               Two-Way Telegram Care Loop
             </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Live Synced (@{TELEGRAM_BOT_USERNAME})
-            </span>
+            {isLinked ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                Live Synced (@{TELEGRAM_BOT_USERNAME})
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                Bot Setup Required
+              </span>
+            )}
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
             Care Loop Schedule &amp; History
           </h1>
-          <p className="text-sm text-slate-500 mt-1 font-medium max-w-2xl">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium max-w-2xl">
             Real-time adherence telemetry, date-specific scheduled doses, and 1-tap Telegram check-in history for{' '}
             <span className="text-slate-800 font-bold">{activeName}</span>.
           </p>
         </div>
 
-        {/* Live Test Trigger */}
-        <div className="relative z-10 flex items-center gap-3 flex-wrap shrink-0">
-          <button
-            type="button"
-            disabled={isDispatching}
-            onClick={handleDispatchTelegram}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black shadow-md shadow-emerald-600/20 transition-all disabled:opacity-60"
-          >
-            {isDispatching ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Zap className="w-4 h-4 text-amber-300" />
-            )}
-            <span>{isDispatching ? 'Sending Alert...' : 'Dispatch Test Check-in'}</span>
-          </button>
+        {/* Live Test Trigger / Connect Button */}
+        <div className="relative z-10 flex items-center gap-2.5 flex-wrap shrink-0">
+          {isLinked ? (
+            <button
+              type="button"
+              disabled={isDispatching}
+              onClick={handleDispatchTelegram}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black shadow-md shadow-emerald-600/20 transition-all disabled:opacity-60"
+            >
+              {isDispatching ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Zap className="w-4 h-4 text-amber-300" />
+              )}
+              <span>{isDispatching ? 'Sending Alert...' : 'Dispatch Test Check-in'}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleConnectBot}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-95 text-white text-xs font-black shadow-md shadow-sky-600/20 transition-all cursor-pointer"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Connect Bot to Setup</span>
+            </button>
+          )}
 
           <a
             href={TELEGRAM_BOT_URL}
@@ -384,10 +412,68 @@ export const CareLoopHistorySection = ({
       )}
 
       {/* ── 2. Improvised GSAP KPI Grid ── */}
-      <CareLoopKpiGrid dayStats={dayStats} selectedDate={selectedDate} />
+      <CareLoopKpiGrid dayStats={dayStats} selectedDate={selectedDate} isLinked={isLinked} />
 
-      {/* ── 3. Date-Wise Schedule & Adherence Timeline ── */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm flex flex-col gap-6">
+      {!isLinked ? (
+        /* ── 3. Connect to Setup State (When Telegram is not linked) ── */
+        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-sm flex flex-col items-center text-center relative overflow-hidden transition-all duration-300 hover:shadow-md">
+          <div className="w-12 h-12 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600 mb-3 shadow-2xs">
+            <Send className="w-6 h-6" />
+          </div>
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            Connect to Setup
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            Connect Telegram to View Medication Schedule
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-lg mt-1.5 leading-relaxed">
+            The date-wise medication schedule and 1-tap adherence tracking activate once your Telegram bot is linked. Connect now to unlock automated reminders for <span className="font-bold text-slate-700">{activeName}</span>.
+          </p>
+
+          {/* 3 Step onboarding guide */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-xl my-6 text-left">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col gap-1">
+              <span className="text-[10px] font-black text-sky-600 uppercase tracking-wider">Step 1</span>
+              <span className="text-xs font-bold text-slate-800">Launch Bot</span>
+              <span className="text-[11px] text-slate-500">Open @{TELEGRAM_BOT_USERNAME}</span>
+            </div>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col gap-1">
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">Step 2</span>
+              <span className="text-xs font-bold text-slate-800">Start Care Loop</span>
+              <span className="text-[11px] text-slate-500">Send /start to pair profile</span>
+            </div>
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col gap-1">
+              <span className="text-[10px] font-black text-violet-600 uppercase tracking-wider">Step 3</span>
+              <span className="text-xs font-bold text-slate-800">Track Adherence</span>
+              <span className="text-[11px] text-slate-500">View live date-wise schedule</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap justify-center">
+            <button
+              type="button"
+              onClick={handleConnectBot}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 active:scale-95 text-white text-xs font-black shadow-md shadow-sky-600/20 transition-all cursor-pointer"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Connect to Setup (@{TELEGRAM_BOT_USERNAME})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onConnectBot) onConnectBot();
+              }}
+              className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all border border-slate-200 cursor-pointer"
+            >
+              Simulate Link (Demo)
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* ── 3. Date-Wise Schedule & Adherence Timeline ── */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm flex flex-col gap-5 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300">
         {/* Date Selector Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div>
@@ -629,7 +715,7 @@ export const CareLoopHistorySection = ({
       </div>
 
       {/* ── 5. Chronological Care Loop Audit Trail ── */}
-      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-sm flex flex-col gap-5">
+      <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm flex flex-col gap-5 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
             <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
@@ -743,6 +829,8 @@ export const CareLoopHistorySection = ({
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 };

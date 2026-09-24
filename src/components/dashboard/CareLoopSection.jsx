@@ -59,12 +59,8 @@ const CareLoopTracker = ({ profile, medications = [], events = [] }) => {
   // Map today's active medicines with Telegram status
   const todayMeds = useMemo(() => {
     const active = medications.filter(m => m.status === 'active' || m.is_synced);
-    const list = active.length > 0 ? active : [
-      { name: 'Zyloric 200mg', strength: '200mg', time: '08:00 PM', food: 'After Food' },
-      { name: 'Rosovas 20mg', strength: '20mg', time: '08:00 PM', food: 'After Food' }
-    ];
 
-    return list.slice(0, 3).map(med => {
+    return active.slice(0, 3).map(med => {
       const medName = med.name || 'Medication';
       const medNameLower = medName.toLowerCase();
       const ev = events.find(e =>
@@ -164,26 +160,32 @@ const CareLoopTracker = ({ profile, medications = [], events = [] }) => {
           Today&apos;s Active Regimen &amp; Status
         </span>
 
-        {todayMeds.map((med, i) => {
-          const BadgeIcon = med.statusBadge?.icon || Clock;
-          return (
-            <div
-              key={med.id || i}
-              className={`flex items-center justify-between gap-2 py-1.5 ${
-                i !== todayMeds.length - 1 ? 'border-b border-slate-200/70' : ''
-              }`}
-            >
-              <div>
-                <p className="text-xs font-bold text-slate-900">{med.displayName}</p>
-                <p className="text-[10px] text-slate-500 font-medium">{med.time} · {med.food}</p>
+        {todayMeds.length > 0 ? (
+          todayMeds.map((med, i) => {
+            const BadgeIcon = med.statusBadge?.icon || Clock;
+            return (
+              <div
+                key={med.id || i}
+                className={`flex items-center justify-between gap-2 py-1.5 ${
+                  i !== todayMeds.length - 1 ? 'border-b border-slate-200/70' : ''
+                }`}
+              >
+                <div className="flex-1 min-w-0 pr-2">
+                  <p className="text-xs font-bold text-slate-900 truncate">{med.displayName}</p>
+                  <p className="text-[10px] text-slate-500 font-medium truncate">{med.time} · {med.food}</p>
+                </div>
+                <span className={`inline-flex items-center justify-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0 ${med.statusBadge?.style}`}>
+                  <BadgeIcon className="w-3 h-3" />
+                  <span className="truncate max-w-[80px] sm:max-w-none">{med.statusBadge?.label}</span>
+                </span>
               </div>
-              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${med.statusBadge?.style}`}>
-                <BadgeIcon className="w-3 h-3" />
-                {med.statusBadge?.label}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })
+        ) : (
+          <p className="text-[11px] text-slate-500 font-medium text-center py-2 bg-white/50 rounded-lg border border-slate-100">
+            No active medications scheduled for today.
+          </p>
+        )}
       </div>
 
       {/* Toast */}
@@ -252,7 +254,7 @@ const BotLinkPrompt = ({ profile }) => (
 // ─── Care Loop Section ────────────────────────────────────────────────────────
 
 export const CareLoopSection = ({ profile, medications = [], events = [] }) => {
-  const isLinked = profile?.telegram_linked || !!profile?.telegram_chat_id || !!profile?.telegram_username || true;
+  const isLinked = profile?.telegram_linked || !!profile?.telegram_chat_id || !!profile?.telegram_username;
   const statsContainerRef = useRef(null);
 
   const relevantEvents = useMemo(() => {
@@ -317,7 +319,7 @@ export const CareLoopSection = ({ profile, medications = [], events = [] }) => {
       )}
 
       {/* Profile stats bar with GSAP hover */}
-      <div ref={statsContainerRef} className="grid grid-cols-3 gap-2">
+      <div ref={statsContainerRef} className="flex flex-wrap gap-2">
         {[
           { label: 'Confirmed Today', value: `${confirmedToday} Doses`, icon: CheckCircle2, color: 'text-emerald-600' },
           { label: 'Response Rate',   value: responseRate,             icon: UserCheck,    color: 'text-sky-600'     },
@@ -327,11 +329,11 @@ export const CareLoopSection = ({ profile, medications = [], events = [] }) => {
             key={label}
             onMouseEnter={onStatEnter}
             onMouseLeave={onStatLeave}
-            className="flex flex-col items-center gap-1 py-3 px-2 bg-white border border-slate-100 rounded-xl text-center transition-shadow shadow-2xs hover:shadow-xs cursor-default"
+            className="flex-1 min-w-[90px] flex flex-col items-center gap-1 py-3 px-1.5 bg-white border border-slate-100 rounded-xl text-center transition-shadow shadow-2xs hover:shadow-xs cursor-default overflow-hidden"
           >
-            <Icon className={`w-3.5 h-3.5 ${color}`} />
-            <p className="text-xs font-black text-slate-900">{value}</p>
-            <p className="text-[10px] text-slate-400 font-medium">{label}</p>
+            <Icon className={`w-3.5 h-3.5 shrink-0 ${color}`} />
+            <p className="text-xs font-black text-slate-900 w-full truncate px-1">{value}</p>
+            <p className="text-[10px] text-slate-400 font-medium w-full truncate px-1">{label}</p>
           </div>
         ))}
       </div>

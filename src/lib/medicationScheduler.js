@@ -186,3 +186,123 @@ export const calculateDoseSchedule = (frequencyTimesPerDay, wakeTime = '08:00', 
 
   return slots;
 };
+
+/**
+ * Evaluates whether a medication is:
+ * - 'completed' / 'done': The prescribed course has ended based on start_date + duration_days
+ * - 'pending' / 'connect': The course is current or ongoing, but Telegram Care Loop is not linked/started
+ * - 'active': The course is current AND Care Loop / Telegram is linked and active
+ *
+ * @param {Object} med The medication item
+ * @param {Object} profile The associated patient/family profile
+ * @returns {Object} status analysis with label, status, type, badgeClass, icon
+ */
+export const getMedicationStatus = (med, profile) => {
+  if (!med) {
+    return {
+      status: 'pending',
+      type: 'pending',
+      label: 'Connect to Start',
+      sub: 'Not started',
+      badgeClass: 'text-amber-700 bg-amber-50 border-amber-200',
+      icon: 'pending'
+    };
+  }
+
+  // 1. Explicit status override check
+  if (med.status === 'completed' || med.status === 'done') {
+    return {
+      status: 'completed',
+      type: 'done',
+      label: 'Course Done',
+      sub: 'Finished',
+      badgeClass: 'text-slate-600 bg-slate-100 border-slate-200',
+      icon: 'done'
+    };
+  }
+
+  // 2. Check if the prescription / start date + duration has elapsed
+  const startDateStr = med.start_date || med.visit_date;
+  const isOngoing = med.duration === 'Ongoing' ||
+    (typeof med.duration === 'string' && med.duration.toLowerCase().includes('ongoing')) ||
+    (typeof med.category === 'string' && (
+      med.category.toLowerCase().includes('blood pressure') ||
+      med.category.toLowerCase().includes('hypertension') ||
+      med.category.toLowerCase().includes('chronic') ||
+      med.category.toLowerCase().includes('diabetes')
+    ));
+
+  let isDatePast = false;
+  if (startDateStr && !isOngoing) {
+    const startDate = new Date(startDateStr);
+    if (!isNaN(startDate.getTime())) {
+      const now = new Date();
+      // Parse duration days: e.g. 5, 7, 10, or parse from duration string
+      let days = parseInt(med.duration_days, 10);
+      if (isNaN(days) || days <= 0) {
+        if (typeof med.duration === 'string') {
+          const match = med.duration.match(/\d+/);
+          days = match ? parseInt(match[0], 10) : 7;
+        } else {
+          days = 7; // standard prescription course default
+        }
+      }
+
+      // End date is start date + days
+      const endDate = new Date(startDate.getTime() + days * 24 * 60 * 60 * 1000);
+      if (now.getTime() > endDate.getTime()) {
+        isDatePast = true;
+      }
+    }
+  }
+
+  if (isDatePast) {
+    return {
+      status: 'completed',
+      type: 'done',
+      label: 'Course Done',
+      sub: med.start_date ? `Ended (${med.duration_days || 7}d course)` : 'Prescription ended',
+      badgeClass: 'text-slate-600 bg-slate-100 border-slate-200',
+      icon: 'done'
+    };
+  }
+
+  // 3. Check Care Loop / Telegram integration
+  const isTelegramLinked = !!profile?.telegram_linked || !!profile?.care_loop_enabled;
+  const isSyncedAndActive = !!med.is_synced && med.status === 'active';
+
+  // If user hasn't started Telegram Care Loop
+  if (!isTelegramLinked && !isSyncedAndActive) {
+    return {
+      status: 'pending',
+      type: 'pending',
+      label: 'Connect to Start',
+      sub: 'Telegram offline',
+      badgeClass: 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100',
+      icon: 'pending'
+    };
+  }
+
+  // 4. Truly Active
+  return {
+    status: 'active',
+    type: 'active',
+    label: 'Active Dose',
+    sub: med.time ? `Next: ${med.time}` : 'Scheduled',
+    badgeClass: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    icon: 'active'
+  };
+};
+
+/**
+ * Counts truly active medications based on prescription dates & Care Loop status.
+ */
+export const getActiveMedicationsCount = (medications = [], profiles = [], activeProfile = null) => {
+  if (!Array.isArray(medications) || medications.length === 0) return 0;
+  return medications.filter(med => {
+    const prof = profiles.find(p => p.id === med.family_member_id) || activeProfile || {};
+    const statusObj = getMedicationStatus(med, prof);
+    return statusObj.status === 'active';
+  }).length;
+};
+

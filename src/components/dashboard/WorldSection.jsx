@@ -3,47 +3,18 @@ import {
   Activity, FileText, ShieldCheck, Send, Users,
   UploadCloud, ChevronRight, CheckCircle2,
   TrendingUp, Pill, Clock, Plus, ExternalLink,
-  Brain, Stethoscope, ArrowRight, Check, User
+  Brain, Stethoscope, Check, User
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { UploadDocumentModal } from './UploadDocumentModal';
 import { TELEGRAM_BOT_URL } from '../../lib/telegramConfig';
+import { getMedicationStatus, getActiveMedicationsCount } from '../../lib/medicationScheduler';
+import { KpiCard } from './KpiCard';
+import { RELATIONSHIP_GRADIENTS, PRESET_EMOJIS } from './dashboardConstants';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 
-// ─── Color Helper ─────────────────────────────────────────────────────────────
-
-const RELATIONSHIP_GRADIENTS = {
-  'Self':    'from-emerald-400 to-teal-500',
-  'Father':  'from-sky-400 to-cyan-500',
-  'Mother':  'from-violet-400 to-fuchsia-500',
-  'Child':   'from-amber-400 to-orange-500',
-  'Son':     'from-amber-400 to-orange-500',
-  'Daughter':'from-pink-400 to-rose-500',
-  'Spouse':  'from-rose-400 to-pink-500',
-  'Brother': 'from-teal-400 to-emerald-500',
-  'Sister':  'from-fuchsia-400 to-purple-500',
-  'Other':   'from-slate-400 to-gray-500',
-};
-
-const PRESET_EMOJIS = {
-  'preset-1': '👨‍⚕️', 'preset-2': '👩‍⚕️', 'preset-3': '🧑‍💼',
-  'preset-4': '👴',   'preset-5': '👩',    'preset-6': '🧑',
-  'preset-7': '👦',   'preset-8': '👧',
-};
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-
-const KpiCard = ({ label, value, sub, icon: Icon, colorClass, bgClass }) => (
-  <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-start gap-3 hover:shadow-md hover:border-slate-200 transition-all duration-200 group">
-    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${bgClass} group-hover:scale-110 transition-transform duration-200`}>
-      <Icon className={`w-5 h-5 ${colorClass}`} />
-    </div>
-    <div className="min-w-0">
-      <p className="text-2xl font-black text-slate-900 leading-none tabular-nums">{value}</p>
-      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mt-0.5 leading-tight">{label}</p>
-      {sub && <p className="text-[10px] text-slate-400 font-medium mt-0.5 leading-tight truncate">{sub}</p>}
-    </div>
-  </div>
-);
+gsap.registerPlugin(useGSAP);
 
 // ─── World Section ────────────────────────────────────────────────────────────
 
@@ -57,10 +28,60 @@ export const WorldSection = ({
   onAddMember,
   onDocumentAdded,
   onViewDocument,
+  onStartMedicine,
 }) => {
   const auth = useAuth();
   const user = propUser || auth?.user;
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [localStartedMeds, setLocalStartedMeds] = useState({});
+  const containerRef = React.useRef(null);
+
+  useGSAP(() => {
+    if (!containerRef.current) return;
+    
+    const tl = gsap.timeline();
+    
+    // 1. Animate Hero Banner
+    tl.fromTo('.hero-banner',
+      { opacity: 0, y: 30, scale: 0.98 },
+      { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: 'power3.out' }
+    );
+    
+    // 2. Animate KPI Cards with stagger
+    tl.fromTo('.kpi-card',
+      { opacity: 0, y: 20 },
+      { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, ease: 'back.out(1.2)' },
+      '-=0.3'
+    );
+    
+    // 3. Animate Bento Grid Items with stagger
+    tl.fromTo('.bento-item',
+      { opacity: 0, y: 25 },
+      { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out' },
+      '-=0.2'
+    );
+  }, { scope: containerRef });
+
+  const handleStartMedicine = (med) => {
+    const today = new Date().toISOString().split('T')[0];
+    setLocalStartedMeds(prev => ({
+      ...prev,
+      [med.id]: {
+        start_date: today,
+        status: 'active',
+        is_synced: true,
+      }
+    }));
+    if (onStartMedicine) {
+      onStartMedicine(med);
+    }
+  };
+
+  const resolvedMedications = medications.map(m => {
+    return localStartedMeds[m.id] ? { ...m, ...localStartedMeds[m.id] } : m;
+  });
+
+  const activeMedsCount = getActiveMedicationsCount(resolvedMedications, profiles, activeProfile);
 
   const now = new Date();
   const greeting = now.getHours() < 12 ? 'Good Morning' : now.getHours() < 17 ? 'Good Afternoon' : 'Good Evening';
@@ -144,11 +165,11 @@ export const WorldSection = ({
     : (activeProfile?.telegram_linked ? 1 : 0);
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in duration-200">
+    <div ref={containerRef} className="flex flex-col gap-6">
 
       {/* ── Hero Banner ── */}
       <div
-        className="relative rounded-3xl overflow-hidden p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5 transition-all duration-300"
+        className="hero-banner relative rounded-3xl overflow-hidden p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5 transition-all duration-300"
         style={{ background: 'linear-gradient(135deg, #022c22 0%, #064e3b 50%, #065f46 100%)' }}
       >
         {/* Background glow blobs */}
@@ -185,22 +206,24 @@ export const WorldSection = ({
         </div>
       </div>
 
-      {/* ── KPI Strip ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      {/* ── KPI Strip (Sleek Compact 6-Card Single Row) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
         {isAllFamily ? (
           <>
             <KpiCard label="Family Profiles"  value={profiles.length}  icon={Users}        colorClass="text-emerald-600" bgClass="bg-emerald-50" sub="Registered" />
-            <KpiCard label="Docs in Vault"    value={documents.length} icon={FileText}     colorClass="text-sky-600"     bgClass="bg-sky-50"     sub="Encrypted records" />
-            <KpiCard label="Care Loop Active" value={linkedTelegramCount} icon={Send}      colorClass="text-violet-600"  bgClass="bg-violet-50"  sub={`of ${profiles.length} members`} />
-            <KpiCard label="Active Regimens"  value={medications.length} icon={Pill}       colorClass="text-teal-600"    bgClass="bg-teal-50"    sub={medications.length > 0 ? `${medications.length} prescribed` : "0 active meds"} />
+            <KpiCard label="Docs in Vault"    value={documents.length} icon={FileText}     colorClass="text-sky-600"     bgClass="bg-sky-50"     sub="Encrypted" />
+            <KpiCard label="Care Loop"        value={`${linkedTelegramCount}/${profiles.length}`} icon={Send} colorClass="text-violet-600" bgClass="bg-violet-50" sub="Family active" />
+            <KpiCard label="Total Medicines"  value={resolvedMedications.length} icon={Pill} colorClass="text-indigo-600"  bgClass="bg-indigo-50"  sub={resolvedMedications.length > 0 ? `${resolvedMedications.length} in records` : "0 meds"} />
+            <KpiCard label="Active Medicines" value={activeMedsCount}  icon={Activity}     colorClass="text-teal-600"    bgClass="bg-teal-50"    sub={activeMedsCount > 0 ? `${activeMedsCount} active` : "0 active"} />
             <KpiCard label="Drug Alerts"      value={0}                icon={ShieldCheck}  colorClass="text-emerald-600" bgClass="bg-emerald-50" sub="0 conflicts" />
           </>
         ) : (
           <>
             <KpiCard label="Active Member"    value={activeProfile?.name?.split(' ')[0] || '1'} icon={User}       colorClass="text-emerald-600" bgClass="bg-emerald-50" sub={activeProfile?.relationship || 'Self'} />
             <KpiCard label="Docs in Vault"    value={documents.length} icon={FileText}     colorClass="text-sky-600"     bgClass="bg-sky-50"     sub={`for ${activeProfile?.name?.split(' ')[0] || 'member'}`} />
-            <KpiCard label="Care Loop Status" value={activeProfile?.telegram_linked ? 'Active' : 'Offline'} icon={Send} colorClass="text-violet-600" bgClass="bg-violet-50" sub={activeProfile?.telegram_linked ? 'Linked' : 'Not linked'} />
-            <KpiCard label="Active Regimens"  value={medications.length} icon={Pill}       colorClass="text-teal-600"    bgClass="bg-teal-50"    sub={medications.length > 0 ? `${medications.length} active` : "0 active meds"} />
+            <KpiCard label="Care Loop Status" value={activeProfile?.telegram_linked ? 'Active' : 'Offline'} icon={Send} colorClass={activeProfile?.telegram_linked ? "text-emerald-600" : "text-violet-600"} bgClass={activeProfile?.telegram_linked ? "bg-emerald-50" : "bg-violet-50"} sub={activeProfile?.telegram_linked ? 'Linked' : 'Not linked'} />
+            <KpiCard label="Total Medicines"  value={resolvedMedications.length} icon={Pill} colorClass="text-indigo-600"  bgClass="bg-indigo-50"  sub={resolvedMedications.length > 0 ? `${resolvedMedications.length} prescribed` : "0 prescribed"} />
+            <KpiCard label="Active Medicines" value={activeMedsCount}  icon={Activity}     colorClass="text-teal-600"    bgClass="bg-teal-50"    sub={activeMedsCount > 0 ? `${activeMedsCount} taking now` : "0 taking now"} />
             <KpiCard label="Drug Alerts"      value={0}                icon={ShieldCheck}  colorClass="text-emerald-600" bgClass="bg-emerald-50" sub="0 conflicts" />
           </>
         )}
@@ -213,7 +236,7 @@ export const WorldSection = ({
         <div className="lg:col-span-2 flex flex-col gap-5">
 
           {/* 1. Latest AI Clinical Analysis Card */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+          <div className="bento-item bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-md transition-all duration-300">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-xs">
@@ -355,8 +378,8 @@ export const WorldSection = ({
             )}
           </div>
 
-          {/* 2. Today's Medication Adherence Timeline (Care Loop Live Feed) */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
+          {/* 2. Prescribed Medications Timeline (Care Loop Live Feed) */}
+          <div className="bento-item bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col hover:-translate-y-1 hover:shadow-md transition-all duration-300">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white shadow-xs">
@@ -364,7 +387,7 @@ export const WorldSection = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 leading-tight">
-                    {isAllFamily ? "Today's Family Medication Timeline" : `Today's Regimen — ${activeProfile?.name?.split(' ')[0] || ''}`}
+                    {isAllFamily ? "Prescribed Family Medications" : `Prescribed Medications — ${activeProfile?.name?.split(' ')[0] || ''}`}
                   </h3>
                   <p className="text-[10px] text-slate-400 font-medium">Synced with Telegram & WhatsApp Care Loop</p>
                 </div>
@@ -379,11 +402,12 @@ export const WorldSection = ({
               </button>
             </div>
 
-            {medications.length > 0 ? (
+            {resolvedMedications.length > 0 ? (
               <div className="divide-y divide-slate-100">
-                {medications.map((item, idx) => {
+                {resolvedMedications.map((item, idx) => {
                   const prof = profiles.find(p => p.id === item.family_member_id) || activeProfile || {};
                   const grad = RELATIONSHIP_GRADIENTS[prof.relationship] || 'from-emerald-400 to-teal-500';
+                  const statusObj = getMedicationStatus(item, prof);
 
                   return (
                     <div key={item.id || idx} className="p-4 sm:px-6 flex items-center justify-between gap-4 hover:bg-slate-50/60 transition-colors">
@@ -405,10 +429,38 @@ export const WorldSection = ({
                       </div>
 
                       <div className="shrink-0 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Active Regimen</span>
-                        </span>
+                        {statusObj.type === 'done' ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+                              <Check className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Course Done</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleStartMedicine(item)}
+                              title="Start or renew this medication course today"
+                              className="inline-flex items-center gap-1 text-[10.5px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/80 px-2 py-1 rounded-lg transition-colors active:scale-95"
+                            >
+                              <Plus className="w-3 h-3 text-emerald-600" />
+                              <span>Start Today</span>
+                            </button>
+                          </div>
+                        ) : statusObj.type === 'pending' ? (
+                          <a
+                            href={TELEGRAM_BOT_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-full transition-colors"
+                          >
+                            <Send className="w-3 h-3 text-amber-600" />
+                            <span>Connect to Start</span>
+                          </a>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Active Dose</span>
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -438,7 +490,7 @@ export const WorldSection = ({
         <div className="flex flex-col gap-5">
 
           {/* Telegram Care Loop Panel (Shows all profiles or only active member) */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="bento-item bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden hover:-translate-y-1 hover:shadow-md transition-all duration-300">
             <div className="px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Send className="w-4 h-4 text-sky-500" />
@@ -506,7 +558,7 @@ export const WorldSection = ({
           </div>
 
           {/* Document Vault Summary */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex-1">
+          <div className="bento-item bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex-1 hover:-translate-y-1 hover:shadow-md transition-all duration-300">
             <div className="px-5 py-4 border-b border-slate-100">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
