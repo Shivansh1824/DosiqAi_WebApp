@@ -464,7 +464,7 @@ export const OnboardingView = () => {
     doseTime: { ...DEFAULT_DOSE },
   });
 
-  const [familyMembers, setFamilyMembers] = useState(DEFAULT_SAMPLE_MEMBERS);
+  const [familyMembers, setFamilyMembers] = useState([]);
 
   const updatePrimary = useCallback((patch) => setPrimary(p => ({ ...p, ...patch })), []);
 
