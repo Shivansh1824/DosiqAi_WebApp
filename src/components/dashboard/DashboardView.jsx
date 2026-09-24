@@ -241,8 +241,8 @@ export const DashboardView = () => {
             time: '08:00 AM',
             food: 'After Breakfast',
             duration: 'Ongoing',
-            status: 'active',
-            is_synced: true,
+            status: 'unlinked',
+            is_synced: false,
             doc_name: 'Dr. Mehta Cardiology Follow-up',
           },
           {
@@ -257,8 +257,8 @@ export const DashboardView = () => {
             time: '07:30 AM',
             food: 'Before Food',
             duration: '30 days',
-            status: 'active',
-            is_synced: true,
+            status: 'unlinked',
+            is_synced: false,
             doc_name: 'Dr. Mehta Cardiology Follow-up',
           },
           {
@@ -273,8 +273,8 @@ export const DashboardView = () => {
             time: '08:30 AM',
             food: 'With Meals',
             duration: 'Ongoing',
-            status: 'active',
-            is_synced: true,
+            status: 'unlinked',
+            is_synced: false,
             doc_name: 'Dr. Patel Endocrinology Consult',
           }
         );
