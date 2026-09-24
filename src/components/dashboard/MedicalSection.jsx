@@ -36,6 +36,28 @@ export const MedicalSection = ({
     }
   }, [analysisDoc, onAnalysisStateChange]);
 
+  // Handle hardware back button for modals and analysis overlays
+  useEffect(() => {
+    // Push state when opening an overlay
+    if (uploadOpen || analysisDoc) {
+      window.history.pushState({ isOverlayOpen: true }, '', window.location.pathname + window.location.search + '#view');
+    }
+
+    const handlePopState = (e) => {
+      // If back button clicked, close whichever overlay is open
+      if (uploadOpen) {
+        setUploadOpen(false);
+      } else if (analysisDoc) {
+        setAnalysisDoc(null);
+        if (onClearInitialDoc) onClearInitialDoc();
+        if (onAnalysisStateChange) onAnalysisStateChange(false);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [uploadOpen, analysisDoc, onClearInitialDoc, onAnalysisStateChange]);
+
   const handleDocumentClick = async (doc) => {
     if (doc.ai_analysis_result || !doc.cloud_file_key) {
       setAnalysisDoc(doc);
@@ -79,6 +101,11 @@ export const MedicalSection = ({
     setAnalysisDoc(null);
     if (onClearInitialDoc) onClearInitialDoc();
     if (onAnalysisStateChange) onAnalysisStateChange(false);
+    
+    // Clean up the history state we pushed
+    if (window.history.state?.isOverlayOpen) {
+      window.history.back();
+    }
   };
 
   // Route to the correct screen based on document type
@@ -157,7 +184,10 @@ export const MedicalSection = ({
       {/* Upload Modal */}
       <UploadDocumentModal
         open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
+        onClose={() => {
+          setUploadOpen(false);
+          if (window.history.state?.isOverlayOpen) window.history.back();
+        }}
         profiles={profiles}
         activeProfile={activeProfile}
         onUploadSuccess={onDocumentAdded}

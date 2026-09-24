@@ -22,7 +22,20 @@ function App() {
   }
 
   const { user, loading, isOnboarded } = useAuth();
-  const [showLanding, setShowLanding] = useState(true);
+  const [showLanding, setShowLanding] = useState(!window.location.hash.includes('login'));
+
+  // Sync back button for Landing -> Login
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === '#login') {
+        setShowLanding(false);
+      } else if (window.location.hash === '' || window.location.hash === '#home') {
+        setShowLanding(true);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   return (
     <ErrorBoundary>
@@ -38,7 +51,10 @@ function App() {
         </div>
       ) : !user ? (
         showLanding ? (
-          <LandingPage onStart={() => setShowLanding(false)} />
+          <LandingPage onStart={() => {
+            window.location.hash = 'login';
+            setShowLanding(false);
+          }} />
         ) : (
           <LoginView />
         )
