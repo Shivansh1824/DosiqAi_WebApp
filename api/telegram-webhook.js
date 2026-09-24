@@ -1,64 +1,52 @@
-import ws from 'ws';
-if (!globalThis.WebSocket) {
-  globalThis.WebSocket = ws;
-}
-import dotenv from 'dotenv';
-dotenv.config();
 import { createClient } from '@supabase/supabase-js';
 
-const botToken = process.env.TELEGRAM_BOT_TOKEN;
-const defaultChatId = process.env.TELEGRAM_CHAT_ID;
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    return res.status(500).json({ error: 'TELEGRAM_BOT_TOKEN is not configured.' });
+  }
 
-if (!botToken) {
-  console.error('[TelegramBotService] No TELEGRAM_BOT_TOKEN in .env');
-  process.exit(1);
-}
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-let offset = 0;
-let isPolling = false;
-
-async function sendTelegramMessage(chatId, text, replyMarkup = null) {
-  try {
-    const payload = {
-      chat_id: chatId,
-      text,
-      parse_mode: 'Markdown',
-    };
-    if (replyMarkup) {
-      payload.reply_markup = replyMarkup;
+  async function sendTelegramMessage(chatId, text, replyMarkup = null) {
+    try {
+      const payload = { chat_id: chatId, text, parse_mode: 'Markdown' };
+      if (replyMarkup) payload.reply_markup = replyMarkup;
+      
+      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.error('[TelegramWebhook] Error sending message:', err.message);
     }
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    return await res.json();
-  } catch (err) {
-    console.error('[TelegramBotService] Error sending message:', err.message);
   }
-}
 
-async function answerCallbackQuery(callbackQueryId, text = '') {
-  try {
-    await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
-    });
-  } catch (err) {
-    console.error('[TelegramBotService] Error answering callback:', err.message);
+  async function answerCallbackQuery(callbackQueryId, text = '') {
+    try {
+      await fetch(`https://api.telegram.org/bot${botToken}/answerCallbackQuery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
+      });
+    } catch (err) {
+      console.error('[TelegramWebhook] Error answering callback:', err.message);
+    }
   }
-}
 
-async function handleUpdate(update) {
+  const update = req.body;
+
   // 1. Handle Inline Button Clicks
   if (update.callback_query) {
     const cq = update.callback_query;
-    const chatId = cq.message?.chat?.id || defaultChatId;
+    const chatId = cq.message?.chat?.id || process.env.TELEGRAM_CHAT_ID;
     const data = cq.data || '';
 
     await answerCallbackQuery(cq.id, 'Received!');
@@ -73,7 +61,7 @@ async function handleUpdate(update) {
             .update({ status: 'active', is_synced: true })
             .neq('status', 'completed');
         } catch (err) {
-          console.error('[TelegramBotService] Supabase update error:', err.message);
+          console.error('[TelegramWebhook] Supabase update error:', err.message);
         }
       }
 
@@ -85,9 +73,7 @@ async function handleUpdate(update) {
         `📱 *Dashboard Status:* Synced with Caregiver Vault ✓`,
         {
           inline_keyboard: [
-            [
-              { text: '💊 Test Dose Check-in Now', callback_data: `checkin:${encodeURIComponent(patient)}` }
-            ]
+            [{ text: '💊 Test Dose Check-in Now', callback_data: `checkin:${encodeURIComponent(patient)}` }]
           ]
         }
       );
@@ -128,7 +114,7 @@ async function handleUpdate(update) {
         `Caregiver has been notified on the web dashboard. Please consult your physician if you feel unwell.`
       );
     }
-    return;
+    return res.status(200).json({ ok: true });
   }
 
   // 2. Handle Text Messages
@@ -165,7 +151,7 @@ async function handleUpdate(update) {
             .update({ status: 'active', is_synced: true })
             .neq('status', 'completed');
         } catch (err) {
-          console.error('[TelegramBotService] Supabase update error:', err.message);
+          console.error('[TelegramWebhook] Supabase update error:', err.message);
         }
       }
 
@@ -177,14 +163,11 @@ async function handleUpdate(update) {
         `📱 *Dashboard Status:* Synced with Caregiver Vault ✓`,
         {
           inline_keyboard: [
-            [
-              { text: '💊 Test Dose Check-in Now', callback_data: 'checkin:Nippun Rana' }
-            ]
+            [{ text: '💊 Test Dose Check-in Now', callback_data: 'checkin:Nippun Rana' }]
           ]
         }
       );
     } else {
-      // Fallback response with quick actions
       await sendTelegramMessage(
         chatId,
         `🌿 *Dosiq AI Care Loop*\n\n` +
@@ -201,30 +184,6 @@ async function handleUpdate(update) {
       );
     }
   }
+
+  return res.status(200).json({ ok: true });
 }
-
-async function poll() {
-  if (isPolling) return;
-  isPolling = true;
-
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/getUpdates?offset=${offset}&timeout=25`);
-    const data = await res.json();
-
-    if (data.ok && Array.isArray(data.result)) {
-      for (const update of data.result) {
-        offset = update.update_id + 1;
-        await handleUpdate(update);
-      }
-    }
-  } catch (err) {
-    console.error('[TelegramBotService] Polling error:', err.message);
-    await new Promise(r => setTimeout(r, 3000));
-  } finally {
-    isPolling = false;
-    setTimeout(poll, 500);
-  }
-}
-
-console.log('[TelegramBotService] Starting Telegram Care Loop bot listener...');
-poll();
