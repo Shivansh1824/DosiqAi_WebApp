@@ -4,7 +4,7 @@ import {
   AlertTriangle, CheckCircle2, Clock, User,
   Stethoscope, Code2, Eye, Feather,
   Calendar, MapPin, HeartPulse, FileText, Loader2, Sparkles,
-  AlertCircle, Printer, Send, Layers
+  AlertCircle, Printer, Send, Layers, Lightbulb
 } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -52,6 +52,86 @@ export const ClinicalAnalysisScreen = ({ doc, onBack, isExtracting = false }) =>
   const durationDays = medicines.find(m => m.duration_days)?.duration_days || 3;
   const interactionFlag = rx?.drug_interactions?.potential_interactions_flag;
   const interactionNote = rx?.drug_interactions?.interaction_note || '';
+
+  const summaryText = common?.summary || (
+    rx?.medical_issue_diagnosis
+      ? `Prescription analysis for ${patient?.name || 'patient'}: Prescribed ${medicines.length} medication${medicines.length !== 1 ? 's' : ''} by ${rx?.doctor_name || 'attending physician'} for ${rx.medical_issue_diagnosis}.${interactionFlag ? ' Potential drug interaction flagged for physician review.' : ' No adverse drug interactions detected.'}`
+      : `Clinical prescription dossier with ${medicines.length} prescribed medication${medicines.length !== 1 ? 's' : ''}. Regimen scheduled and verified by Dosiq AI.`
+  );
+
+  const narrativeText = rx?.clinical_narrative || common?.clinical_narrative || reportData?.clinical_narrative || (() => {
+    const medNames = medicines.slice(0, 3).map(m => m.exact_written_name || m.name).filter(Boolean);
+    const medCount = medicines.length;
+    const diag = rx?.medical_issue_diagnosis || rx?.diagnosis || common?.provisional_diagnosis;
+    const docName = rx?.doctor_name;
+
+    const parts = [];
+    if (diag) {
+      parts.push(`This prescription has been prepared for the treatment of ${diag}.`);
+    } else if (docName) {
+      parts.push(`This regimen was prescribed during consultation with ${docName}.`);
+    }
+
+    if (medCount > 0) {
+      parts.push(`It includes ${medCount} prescribed medication${medCount > 1 ? 's' : ''}${medNames.length > 0 ? ` (${medNames.join(', ')})` : ''} to support patient recovery.`);
+    }
+
+    const beforeFood = medicines.some(m => m?.timing?.relation_to_meal === 'before_food');
+    const afterFood = medicines.some(m => m?.timing?.relation_to_meal === 'after_food');
+    if (beforeFood && afterFood) {
+      parts.push('Caregivers should note that certain doses are scheduled before meals and others after meals for safe digestion.');
+    } else if (afterFood) {
+      parts.push('Ensure medications are taken after meals as prescribed to avoid stomach discomfort.');
+    } else if (beforeFood) {
+      parts.push('Ensure doses are administered before meals on an empty stomach for maximum effectiveness.');
+    }
+
+    if (interactionFlag) {
+      parts.push('A pharmacology interaction alert was flagged: consult your doctor before combining with other over-the-counter medications.');
+    }
+
+    if (rx?.follow_up?.follow_up_date || rx?.follow_up?.follow_up_days) {
+      const fDate = rx.follow_up.follow_up_date || `in ${rx.follow_up.follow_up_days} days`;
+      parts.push(`Be sure to attend your follow-up appointment ${fDate}.`);
+    } else {
+      parts.push('Reach out to your physician if symptoms do not improve or if you experience any unexpected side effects.');
+    }
+    return parts.join(' ');
+  })();
+
+  const renderSummaryCards = () => (
+    <div className="flex flex-col gap-3">
+      {/* AI Clinical Summary (Light Green) */}
+      <div className="gsap-summary-card bg-emerald-50/80 rounded-2xl p-5 border border-emerald-200/80 shadow-sm flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-emerald-800">
+          <Brain className="w-4 h-4 text-emerald-700" />
+          <h3 className="text-xs font-black uppercase tracking-wider text-emerald-950">
+            Dosiq AI — Clinical Summary
+          </h3>
+        </div>
+        {summaryText && (
+          <p className="text-sm font-semibold text-slate-800 leading-relaxed">
+            {summaryText}
+          </p>
+        )}
+      </div>
+
+      {/* For You & Your Family (Light Purple) */}
+      {narrativeText && (
+        <div className="gsap-summary-card bg-violet-50 rounded-2xl p-5 border border-violet-100 shadow-sm flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <Lightbulb className="w-4 h-4 text-violet-500" />
+            <h3 className="text-xs font-black uppercase tracking-wider text-violet-700">
+              For You &amp; Your Family
+            </h3>
+          </div>
+          <p className="text-sm text-slate-700 leading-relaxed font-medium">
+            {narrativeText}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 
   // GSAP Smooth Header Entry
   useGSAP(() => {
@@ -678,7 +758,10 @@ Drug Conflict Shield: ${interactionFlag ? 'Interaction Flagged' : 'All Clear'}`}
           {/*           3. Clinical directives, 4. Telegram loop             */}
           {/* ═══════════════════════════════════════════════════════════════ */}
           {activeTab === 'overview' && (
-            <div className="gsap-tab-content flex flex-col gap-8">
+            <div className="gsap-tab-content flex flex-col gap-6">
+              {/* Executive Summary & Patient Narrative Cards */}
+              {renderSummaryCards()}
+
               {/* 1. AI Intelligence Section */}
               <div>
                 <div className="flex items-center gap-2 mb-3">
@@ -730,6 +813,7 @@ Drug Conflict Shield: ${interactionFlag ? 'Interaction Flagged' : 'All Clear'}`}
           {/* ═══════════════════════════════════════════════════════════════ */}
           {activeTab === 'clinical' && (
             <div className="gsap-tab-content flex flex-col gap-6">
+              {renderSummaryCards()}
               {renderMedicalResult()}
               {renderTelegramLoop()}
             </div>

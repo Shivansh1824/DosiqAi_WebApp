@@ -238,10 +238,10 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
       </div>
 
       {/* AI Clinical Summary */}
-      <div className="gsap-summary-card bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col gap-3">
-        <div className="flex items-center gap-2 text-emerald-700">
-          <Brain className="w-4 h-4" />
-          <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">Dosiq AI — Clinical Summary</h3>
+      <div className="gsap-summary-card bg-emerald-50/80 rounded-2xl p-5 border border-emerald-200/80 shadow-sm flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-emerald-800">
+          <Brain className="w-4 h-4 text-emerald-700" />
+          <h3 className="text-xs font-black uppercase tracking-wider text-emerald-950">Dosiq AI — Clinical Summary</h3>
         </div>
         {common?.summary && (
           <p className="text-sm font-semibold text-slate-800 leading-relaxed">{common.summary}</p>
@@ -249,13 +249,15 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
       </div>
 
       {/* Patient Narrative */}
-      {reportData?.clinical_narrative && (
+      {(reportData?.clinical_narrative || common?.clinical_narrative) && (
         <div className="gsap-summary-card bg-violet-50 rounded-2xl p-5 border border-violet-100 flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <Lightbulb className="w-4 h-4 text-violet-500" />
             <h3 className="text-xs font-black uppercase tracking-wider text-violet-700">For You & Your Family</h3>
           </div>
-          <p className="text-sm text-slate-700 leading-relaxed font-medium">{reportData.clinical_narrative}</p>
+          <p className="text-sm text-slate-700 leading-relaxed font-medium">
+            {reportData?.clinical_narrative || common?.clinical_narrative}
+          </p>
         </div>
       )}
 

@@ -71,6 +71,13 @@ SECTION A: EXTRACTION RULES
    - Capture lifestyle, dietary advice, allergies, and vitals (e.g. BP, Pulse, Weight):
      [{"category": "Diet"|"Lifestyle"|"Vitals"|"Allergy"|"Notes", "value": "String"}].
 
+9. CLINICAL NARRATIVE (PATIENT & CAREGIVER ADVICE):
+   Write a separate 2-4 sentence "clinical_narrative" in plain English for the patient/caregiver ("For You & Your Family"):
+   - Reassuringly explain why these medications were prescribed in everyday terms.
+   - Give practical care guidance for the patient and caregiver (e.g. meal timings, completing the course, hydration).
+   - End with clear advice on when to follow up or contact the doctor if symptoms do not improve.
+   This narrative is patient-friendly — no medical jargon. It goes in prescription_data.clinical_narrative.
+
 ═══════════════════════════════════════════════════════════════════════════════
 SECTION B: OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════════════════════════
@@ -107,6 +114,7 @@ Return ONLY a strict, valid JSON object matching this exact structure:
     "hospital_name": "String or null",
     "medical_issue_diagnosis": "String or null",
     "diagnosis_source": "explicit" | "inferred",
+    "clinical_narrative": "2-4 sentence patient-friendly narrative per RULE 9",
     "follow_up": {
       "follow_up_date": "YYYY-MM-DD or null",
       "follow_up_days": null
