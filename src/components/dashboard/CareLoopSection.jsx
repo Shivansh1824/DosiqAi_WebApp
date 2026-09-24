@@ -94,8 +94,8 @@ const CareLoopTracker = ({ profile, medications = [], events = [] }) => {
       return {
         ...med,
         displayName: medName,
-        time: med.time || '08:00 PM',
-        food: med.food || 'After Food',
+        time: typeof med.time === 'string' ? med.time : '08:00 PM',
+        food: typeof med.food === 'string' ? med.food : 'After Food',
         statusBadge,
       };
     });

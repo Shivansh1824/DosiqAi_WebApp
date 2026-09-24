@@ -237,10 +237,10 @@ const UnlinkedPrescriptionMedCard = ({ med, onSync }) => {
       {/* Dosage, timing & doctor instructions */}
       <div className="flex items-center gap-3 text-xs text-slate-600 flex-wrap pt-1 font-medium">
         <span className="font-bold text-slate-800">
-          Schedule: {med.slot || 'Daily'}
+          Schedule: {typeof med.slot === 'string' ? med.slot : (med.timing?.dosage || 'Daily')}
         </span>
         <span className="text-slate-300">•</span>
-        <span>{med.food || 'After Food'}</span>
+        <span>{typeof med.food === 'string' ? med.food : 'After Food'}</span>
         {med.duration && (
           <>
             <span className="text-slate-300">•</span>

@@ -330,12 +330,20 @@ export const WorldSection = ({
                         <span>Decoded Prescriptions:</span>
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {extractedMeds.slice(0, 3).map((m, idx) => (
-                          <span key={idx} className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold px-3 py-1.5 rounded-xl">
-                            <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            {m.name || m.drug} ({m.timing || m.dosage || 'As directed'})
-                          </span>
-                        ))}
+                        {extractedMeds.slice(0, 3).map((m, idx) => {
+                          const medName = m.exact_written_name || m.brand || m.name || m.drug || 'Prescription Drug';
+                          const timingText = typeof m.dosage === 'string'
+                            ? m.dosage
+                            : (typeof m.timing === 'string'
+                                ? m.timing
+                                : (m.timing?.dosage || (m.timing?.total_times_per_day ? `${m.timing.total_times_per_day}x Daily` : 'As directed')));
+                          return (
+                            <span key={idx} className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold px-3 py-1.5 rounded-xl">
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              {medName} ({timingText})
+                            </span>
+                          );
+                        })}
                       </div>
                       <div className="flex items-center gap-2 mt-1 bg-emerald-50/70 border border-emerald-200/80 px-3.5 py-2 rounded-xl text-xs font-semibold text-emerald-900">
                         <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
