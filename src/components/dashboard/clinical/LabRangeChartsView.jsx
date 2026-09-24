@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { SlidersHorizontal, AlertTriangle, CheckCircle2, Search, Filter, Sparkles } from 'lucide-react';
+import { SlidersHorizontal, AlertTriangle, CheckCircle2, Search, Filter } from 'lucide-react';
 import { BiomarkerRangeGauge } from './BiomarkerRangeGauge';
 
 /**

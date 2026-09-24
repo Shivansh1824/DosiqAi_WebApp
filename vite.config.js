@@ -76,6 +76,16 @@ export default defineConfig({
           }
         });
 
+        app.post('/api/check-biomarker', async (req, res) => {
+          try {
+            const { default: handler } = await import('./api/check-biomarker.js');
+            return await handler(req, res);
+          } catch (err) {
+            console.error('[DEV API] Error in check-biomarker:', err);
+            return res.status(500).json({ error: err.message });
+          }
+        });
+
         app.post('/api/send-telegram-reminder', async (req, res) => {
           try {
             const { default: handler } = await import('./api/send-telegram-reminder.js');

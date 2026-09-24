@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ArrowDown, ArrowUp, Check, AlertTriangle, ShieldCheck, Info } from 'lucide-react';
+import { ArrowDown, ArrowUp, ShieldCheck, Info } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { parseBiomarkerRange } from '../../../lib/referenceRanges';

@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  X, ExternalLink, Download, FileText, ZoomIn, ZoomOut,
-  RotateCw, RefreshCw, ShieldCheck, Eye, Sparkles, User,
-  Calendar, Building2, Stethoscope, FlaskConical, Pill
+  X, ExternalLink, FileText, ZoomIn, ZoomOut,
+  RotateCw, RefreshCw, ShieldCheck, FlaskConical, Pill
 } from 'lucide-react';
 import { getDocumentFileUrl } from '../../../lib/documentService';
 

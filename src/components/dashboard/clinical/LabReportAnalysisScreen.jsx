@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, FlaskConical, Brain, Activity, Code2,
   Eye, Calendar, User, AlertTriangle, CheckCircle2,
@@ -21,16 +21,45 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
   const [activeTab, setActiveTab] = useState('overview');
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [showDocPreview, setShowDocPreview] = useState(false);
+  const [currentDoc, setCurrentDoc] = useState(doc);
+  const [trendsStatus, setTrendsStatus] = useState(doc?.trends_status || 'completed');
   const containerRef = useRef(null);
 
-  const extraction = doc?.ai_analysis_result;
+  useEffect(() => {
+    setCurrentDoc(doc);
+    if (doc?.trends_status) {
+      setTrendsStatus(doc.trends_status);
+    }
+  }, [doc]);
+
+  useEffect(() => {
+    const handleReconciled = (e) => {
+      const { documentId, result } = e.detail || {};
+      if (documentId && (documentId === currentDoc?.id || documentId === doc?.id)) {
+        setTrendsStatus('completed');
+        if (result) {
+          setCurrentDoc(prev => ({
+            ...prev,
+            ai_analysis_result: result,
+            trends_status: 'completed',
+          }));
+        }
+      }
+    };
+
+    window.addEventListener('dosiq:biomarkers-reconciled', handleReconciled);
+    return () => window.removeEventListener('dosiq:biomarkers-reconciled', handleReconciled);
+  }, [currentDoc?.id, doc?.id]);
+
+  const activeDoc = currentDoc || doc;
+  const extraction = activeDoc?.ai_analysis_result;
   const reportData = extraction?.report_data;
   const patient = extraction?.patient_info;
   const common = extraction?.common_data;
   const meta = extraction?.analysis_metadata;
   const errorResp = extraction?.error_response;
   const reasoning = extraction?.reasoning;
-  const fileName = extraction?.file_name || doc?.local_file_path || `${patient?.name || 'Patient'} Lab Report`;
+  const fileName = extraction?.file_name || activeDoc?.local_file_path || `${patient?.name || 'Patient'} Lab Report`;
   const confidencePct = Math.round((meta?.confidence_score ?? 0.95) * 100);
 
   const panels = reportData?.grouped_metrics || [];
@@ -39,7 +68,18 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
 
   // Build cross-report trend data from allReportDocs (sorted by genuine clinical date)
   const trendMap = {};
-  const sortedDocs = [...allReportDocs]
+  const docPool = [...allReportDocs];
+  if (activeDoc?.ai_analysis_result?.report_data?.grouped_metrics) {
+    const exists = docPool.some(d => d.id === activeDoc.id || (d.cloud_file_key && d.cloud_file_key === activeDoc.cloud_file_key));
+    if (!exists) {
+      docPool.push(activeDoc);
+    } else {
+      const idx = docPool.findIndex(d => d.id === activeDoc.id || (d.cloud_file_key && d.cloud_file_key === activeDoc.cloud_file_key));
+      docPool[idx] = activeDoc;
+    }
+  }
+
+  const sortedDocs = docPool
     .filter(d => d.ai_analysis_result?.report_data?.grouped_metrics)
     .sort((a, b) => {
       const dateA = resolveClinicalReportDate(a).isoDate;
@@ -63,8 +103,9 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
 
     (rd?.grouped_metrics || []).forEach(panel => {
       panel.metrics.forEach(metric => {
+        if (metric.is_junk) return;
         const rawName = metric.test_name;
-        const key = normalizeBiomarkerName(rawName) || rawName;
+        const key = metric.canonical_name || normalizeBiomarkerName(rawName) || rawName;
 
         if (recordedInDoc.has(key)) return;
 
@@ -284,7 +325,26 @@ export const LabReportAnalysisScreen = ({ doc, onBack, isExtracting = false, all
           </p>
         </div>
 
-        {allReportDocs.length < 2 && (
+        {trendsStatus === 'calculating' && (
+          <div className="bg-sky-50/90 border border-sky-200/90 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm animate-pulse">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-5 h-5 text-sky-600 animate-spin shrink-0" />
+              <div>
+                <p className="text-xs font-black text-sky-950">
+                  Calculating historical trends in background…
+                </p>
+                <p className="text-[11px] text-sky-700 font-medium">
+                  Reconciling with master biomarkers and cross-referencing previous visits.
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 bg-sky-100 text-sky-800 rounded-full border border-sky-300">
+              Processing
+            </span>
+          </div>
+        )}
+
+        {allReportDocs.length < 2 && trendsStatus !== 'calculating' && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
             <Lightbulb className="w-5 h-5 text-amber-500 shrink-0" />
             <p className="text-xs font-semibold text-amber-800">

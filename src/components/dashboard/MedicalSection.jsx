@@ -6,6 +6,7 @@ import { QuickProfileSwitcher } from './QuickProfileSwitcher';
 import { ClinicalAnalysisScreen } from './clinical/ClinicalAnalysisScreen';
 import { LabReportAnalysisScreen } from './clinical/LabReportAnalysisScreen';
 import { extractDocumentData } from '../../lib/documentService';
+import { reconcileReportBiomarkers } from '../../lib/biomarkerReconciliationService';
 
 export const MedicalSection = ({
   profiles,
@@ -43,7 +44,30 @@ export const MedicalSection = ({
       setAnalysisDoc({ ...doc, isExtracting: true });
       try {
         const result = await extractDocumentData(doc.cloud_file_key, doc.type);
-        setAnalysisDoc({ ...doc, ai_analysis_result: result, isExtracting: false });
+        setAnalysisDoc({
+          ...doc,
+          ai_analysis_result: result,
+          isExtracting: false,
+          trends_status: doc.type === 'Blood Test' ? 'calculating' : 'completed',
+        });
+        if (doc.type === 'Blood Test' && result?.report_data) {
+          (async () => {
+            try {
+              const reconciliation = await reconcileReportBiomarkers(result, {
+                userId: doc.user_id,
+                familyMemberId: doc.family_member_id || activeProfile?.id,
+                documentId: doc.id,
+                reportDate: result?.common_data?.visit_date || result?.report_data?.report_date || doc.date || doc.visit_date,
+                labName: doc.clinic || doc.doctor || 'Diagnostic Lab',
+              });
+              window.dispatchEvent(new CustomEvent('dosiq:biomarkers-reconciled', {
+                detail: { documentId: doc.id, result, reconciliation },
+              }));
+            } catch (recErr) {
+              console.warn('Reconcile on document click note:', recErr);
+            }
+          })();
+        }
       } catch (err) {
         console.error('Extraction failed on click:', err);
         setAnalysisDoc({ ...doc, isExtracting: false });
@@ -61,9 +85,22 @@ export const MedicalSection = ({
   if (analysisDoc) {
     const isLabReport = analysisDoc.type === 'Blood Test' ||
       analysisDoc.ai_analysis_result?.document_type === 'medical_report';
-    const allReportDocs = documents.filter(d =>
-      d.type === 'Blood Test' && d.ai_analysis_result?.report_data
-    );
+    const allReportDocs = (() => {
+      const list = (documents || []).filter(d =>
+        d.type === 'Blood Test' && d.ai_analysis_result?.report_data
+      );
+      const exists = list.some(d =>
+        d.id === analysisDoc.id || (d.cloud_file_key && d.cloud_file_key === analysisDoc.cloud_file_key)
+      );
+      if (!exists && analysisDoc?.ai_analysis_result?.report_data) {
+        return [analysisDoc, ...list];
+      }
+      return list.map(d =>
+        (d.id === analysisDoc.id || (d.cloud_file_key && d.cloud_file_key === analysisDoc.cloud_file_key))
+          ? { ...d, ...analysisDoc }
+          : d
+      );
+    })();
 
     if (isLabReport) {
       return (
@@ -127,6 +164,7 @@ export const MedicalSection = ({
         onExtractionComplete={(doc) => {
           setUploadOpen(false);
           setAnalysisDoc(doc);
+          onDocumentAdded?.(doc);
         }}
         onAddMember={onAddMember}
       />

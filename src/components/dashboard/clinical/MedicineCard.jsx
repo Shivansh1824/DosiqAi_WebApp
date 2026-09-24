@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
-  Clock, Pill, AlertTriangle, ShieldCheck, CheckCircle2,
-  ChevronDown, ChevronUp, Stethoscope, Utensils, Calendar,
-  Sparkles, Info, HelpCircle, Check, Plus, Edit3, XCircle
+  Clock, AlertTriangle, CheckCircle2,
+  ChevronDown, ChevronUp, Stethoscope, Calendar,
+  Info, Check, Edit3
 } from 'lucide-react';
-import { isMedicationSos, calculateDoseSchedule, formatTime12h } from '../../../lib/medicationScheduler';
+import { isMedicationSos, calculateDoseSchedule } from '../../../lib/medicationScheduler';
 
 const MEAL_CONFIG = {
   after_food: {

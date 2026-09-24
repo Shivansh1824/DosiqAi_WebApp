@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   ArrowLeft, Pill, FlaskConical, Brain, ShieldCheck,
-  AlertTriangle, CheckCircle2, Clock, User, Building2,
-  Stethoscope, Zap, Activity, Code2, Download, Eye, Feather,
+  AlertTriangle, CheckCircle2, Clock, User,
+  Stethoscope, Code2, Eye, Feather,
   Calendar, MapPin, HeartPulse, FileText, Loader2, Sparkles,
-  AlertCircle, Printer, ChevronRight, FileCheck, Check, Send,
-  LayoutGrid, Layers
+  AlertCircle, Printer, Send, Layers
 } from 'lucide-react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';

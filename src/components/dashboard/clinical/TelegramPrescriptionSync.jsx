@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, CheckCircle2, Clock, Zap, ExternalLink, Bell, Smartphone, ShieldCheck, Sparkles, Edit3 } from 'lucide-react';
+import { Send, CheckCircle2, Clock, Zap, ExternalLink, Bell, Edit3 } from 'lucide-react';
 import { TimePickerModal } from '../../onboarding/TimePickerModal';
 import { isMedicationSos, calculateDoseSchedule, formatTime12h } from '../../../lib/medicationScheduler';
 import { TELEGRAM_BOT_USERNAME, TELEGRAM_BOT_URL } from '../../../lib/telegramConfig';

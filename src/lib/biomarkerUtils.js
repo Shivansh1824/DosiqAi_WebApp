@@ -39,27 +39,27 @@ const CANONICAL_ALIASES = [
   // ── Lipid Profile (Each is strictly independent) ──
   {
     canonical: 'Total Cholesterol',
-    match: ['total cholesterol', 'serum cholesterol', 'cholesterol - total', 'cholesterol total', 'cholesterol, total', 'cholesterol (total)'],
+    match: ['total cholesterol', 'serum cholesterol', 'cholesterol - total', 'cholesterol total', 'cholesterol, total', 'cholesterol (total)', 's. cholesterol', 's.cholesterol', 'cholesterol', 'chl', 'tc', 'total chol', 't. chol', 'cholestrol'],
     exclude: ['hdl', 'ldl', 'vldl', 'ratio', 'non-hdl', 'non hdl']
   },
   {
     canonical: 'Triglycerides',
-    match: ['triglyceride', 'triglycerides', 'serum triglycerides', 'serum triglyceride'],
+    match: ['triglyceride', 'triglycerides', 'serum triglycerides', 'serum triglyceride', 's. triglycerides', 's.triglycerides', 'tg', 'tgl', 'trigs'],
     exclude: []
   },
   {
     canonical: 'HDL Cholesterol (Good)',
-    match: ['hdl cholesterol', 'hdl - cholesterol', 'cholesterol - hdl', 'serum hdl', 'hdl-cholesterol', 'high density lipoprotein'],
+    match: ['hdl cholesterol', 'hdl - cholesterol', 'cholesterol - hdl', 'serum hdl', 'hdl-cholesterol', 'high density lipoprotein', 's. hdl', 's.hdl', 'hdl'],
     exclude: ['ratio', 'non-hdl']
   },
   {
     canonical: 'LDL Cholesterol (Bad)',
-    match: ['ldl cholesterol', 'ldl - cholesterol', 'cholesterol - ldl', 'serum ldl', 'ldl-cholesterol', 'low density lipoprotein'],
+    match: ['ldl cholesterol', 'ldl - cholesterol', 'cholesterol - ldl', 'serum ldl', 'ldl-cholesterol', 'low density lipoprotein', 's. ldl', 's.ldl', 'ldl'],
     exclude: ['ratio', 'vldl', 'hdl']
   },
   {
     canonical: 'VLDL Cholesterol',
-    match: ['vldl cholesterol', 'vldl - cholesterol', 'cholesterol - vldl', 'serum vldl', 'vldl-cholesterol', 'very low density lipoprotein'],
+    match: ['vldl cholesterol', 'vldl - cholesterol', 'cholesterol - vldl', 'serum vldl', 'vldl-cholesterol', 'very low density lipoprotein', 's. vldl', 's.vldl', 'vldl'],
     exclude: []
   },
   {
@@ -69,7 +69,7 @@ const CANONICAL_ALIASES = [
   },
   {
     canonical: 'Cholesterol / HDL Ratio',
-    match: ['cholesterol/hdl ratio', 'tc/hdl ratio', 'chol/hdl', 'total cholesterol / hdl', 'cholesterol:hdl ratio'],
+    match: ['cholesterol/hdl ratio', 'tc/hdl ratio', 'chol/hdl', 'total cholesterol / hdl', 'cholesterol:hdl ratio', 'total cholesterol : hdl ratio', 'cholesterol : hdl ratio', 'tc : hdl ratio', 'tc:hdl ratio'],
     exclude: []
   },
   // ── Liver Function (LFT) ──

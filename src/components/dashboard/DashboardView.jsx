@@ -342,6 +342,28 @@ export const DashboardView = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeTab]);
 
+  // Listen for background biomarker reconciliation completion to refresh trends seamlessly
+  useEffect(() => {
+    const handleReconciled = (e) => {
+      const { documentId, result } = e.detail || {};
+      if (documentId && result) {
+        setDocuments(prev => prev.map(d => {
+          if (d.id === documentId || (d.cloud_file_key && d.cloud_file_key === documentId)) {
+            return {
+              ...d,
+              ai_analysis_result: result,
+              trends_status: 'completed',
+            };
+          }
+          return d;
+        }));
+      }
+    };
+
+    window.addEventListener('dosiq:biomarkers-reconciled', handleReconciled);
+    return () => window.removeEventListener('dosiq:biomarkers-reconciled', handleReconciled);
+  }, []);
+
   // Handler for updating existing family member profile & vitals in Supabase
   const handleUpdateProfile = async (updated) => {
     if (!user?.id || !updated?.id) return;
@@ -476,7 +498,7 @@ export const DashboardView = () => {
 
     if (user?.id) {
       try {
-        await supabase.from('documents').insert([{
+        const docInsertPayload = {
           user_id: user.id,
           family_member_id: activeProfile?.id !== 'all' ? activeProfile?.id : null,
           type: newDoc.type,
@@ -488,7 +510,11 @@ export const DashboardView = () => {
           local_file_path: newDoc.local_file_path || null,
           ai_analysis_status: newDoc.ai_status || 'pending',
           ai_analysis_result: newDoc.ai_analysis_result || null,
-        }]);
+        };
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(newDoc.id)) {
+          docInsertPayload.id = newDoc.id;
+        }
+        await supabase.from('documents').insert([docInsertPayload]);
       } catch (err) {
         console.error('Error persisting document:', err);
       }
@@ -616,8 +642,9 @@ export const DashboardView = () => {
 
       panels.forEach(panel => {
         panel.metrics.forEach(metric => {
+          if (metric.is_junk) return;
           const rawName = metric.test_name;
-          const canonical = normalizeBiomarkerName(rawName);
+          const canonical = metric.canonical_name || normalizeBiomarkerName(rawName);
           const key = canonical || rawName;
 
           if (recordedInDoc.has(key)) return;

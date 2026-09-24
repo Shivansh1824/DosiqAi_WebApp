@@ -11,6 +11,7 @@ import { QrCodeSyncCard } from './QrCodeSyncCard';
 import { DocumentPhotoGallery } from './DocumentPhotoGallery';
 import { ImageZoomModal } from './ImageZoomModal';
 import { generateSyncSessionId, processDocumentFilesForVault, checkDocumentValidity, extractDocumentData } from '../../lib/documentService';
+import { reconcileReportBiomarkers } from '../../lib/biomarkerReconciliationService';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 
@@ -21,6 +22,33 @@ const RELATIONSHIP_GRADIENTS = {
   Self: 'from-emerald-400 to-teal-500', Father: 'from-sky-400 to-cyan-500', Mother: 'from-violet-400 to-fuchsia-500',
   Child: 'from-amber-400 to-orange-500', Son: 'from-amber-400 to-orange-500', Daughter: 'from-pink-400 to-rose-500',
   Spouse: 'from-rose-400 to-pink-500', Brother: 'from-teal-400 to-emerald-500', Sister: 'from-fuchsia-400 to-purple-500', Other: 'from-slate-400 to-gray-500',
+};
+
+const triggerBackgroundReconciliation = (result, docPayload, user, selectedMember) => {
+  if (!result?.report_data) return;
+  (async () => {
+    try {
+      const reportDate = result?.common_data?.visit_date || result?.report_data?.report_date || docPayload.date;
+      const labName = docPayload.hospital || docPayload.clinic || 'Diagnostic Lab';
+      const reconciliation = await reconcileReportBiomarkers(result, {
+        userId: user?.id,
+        familyMemberId: docPayload.family_member_id || selectedMember?.id,
+        documentId: docPayload.id,
+        reportDate,
+        labName,
+      });
+
+      window.dispatchEvent(new CustomEvent('dosiq:biomarkers-reconciled', {
+        detail: {
+          documentId: docPayload.id,
+          result,
+          reconciliation,
+        },
+      }));
+    } catch (reconcileErr) {
+      console.warn('Background biomarker reconciliation note:', reconcileErr);
+    }
+  })();
 };
 
 export const UploadDocumentModal = ({
@@ -368,10 +396,9 @@ const SAMPLE_PRESETS = {
       );
 
       const primaryFileName = files[0]?.name || finalFileName;
-      const isRx = docType === 'Prescription';
 
       const newDocPayload = {
-        id: `doc_${Date.now()}`,
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `doc_${Date.now()}`,
         user_id: user?.id,
         family_member_id: memberId,
         type: docType,
@@ -440,16 +467,25 @@ const SAMPLE_PRESETS = {
             diagnosis: diagnosisFromAi || newDocPayload.diagnosis,
             ai_status: 'completed',
             ai_analysis_result: result,
+            trends_status: docType === 'Blood Test' ? 'calculating' : 'completed',
           };
+
+          // 1. Immediately present the extracted document & close modal (< 4.5s total wait!)
           onExtractionComplete?.(enrichedDoc);
+          setExtracting(false);
+          onClose?.();
+
+          // 2. Run biomarker checking & trend calculations asynchronously in background
+          if (docType === 'Blood Test') {
+            triggerBackgroundReconciliation(result, enrichedDoc, user, selectedMember);
+          }
+          return;
         } catch (extractErr) {
           console.error('Clinical extraction error:', extractErr);
           setExtracting(false);
           setDone(false);
           throw extractErr;
         }
-        setExtracting(false);
-        onClose?.();
       } else {
         // Some pages are invalid – show the warning modal
         const bad = analysis.pages.filter(p => p.status !== 'valid');
@@ -490,7 +526,6 @@ const SAMPLE_PRESETS = {
     setCheckError(null);
 
     try {
-      const memberId = selectedMember?.id || null;
       const patientName = selectedMember?.name || selectedMember?.relationship || 'Family Member';
 
       // Recompile PDF with only valid files and delete old
@@ -519,7 +554,22 @@ const SAMPLE_PRESETS = {
       setExtracting(true);
       try {
         const result = await extractDocumentData(newKey, docType, currentFileBase64, currentMimeType);
-        onExtractionComplete?.({ ...cleanPayload, ai_status: 'completed', ai_analysis_result: result });
+        
+        const enrichedDoc = {
+          ...cleanPayload,
+          ai_status: 'completed',
+          ai_analysis_result: result,
+          trends_status: docType === 'Blood Test' ? 'calculating' : 'completed',
+        };
+
+        onExtractionComplete?.(enrichedDoc);
+        setExtracting(false);
+        onClose?.();
+
+        if (docType === 'Blood Test') {
+          triggerBackgroundReconciliation(result, enrichedDoc, user, selectedMember);
+        }
+        return;
       } catch (extractErr) {
         console.error('Clinical extraction error:', extractErr);
       }
@@ -539,7 +589,6 @@ const SAMPLE_PRESETS = {
     setUploading(true);
 
     const targetDocType = docType === 'Prescription' ? 'Blood Test' : 'Prescription';
-    const isTargetRx = targetDocType === 'Prescription';
     const primaryFileName = currentDocPayload.file_name || currentDocPayload.local_file_path;
 
     const updatedPayload = {
@@ -577,8 +626,17 @@ const SAMPLE_PRESETS = {
         diagnosis: diagnosisFromAi || updatedPayload.diagnosis,
         ai_status: 'completed',
         ai_analysis_result: result,
+        trends_status: targetDocType === 'Blood Test' ? 'calculating' : 'completed',
       };
+
       onExtractionComplete?.(enrichedDoc);
+      setExtracting(false);
+      onClose?.();
+
+      if (targetDocType === 'Blood Test') {
+        triggerBackgroundReconciliation(result, enrichedDoc, user, selectedMember);
+      }
+      return;
     } catch (extractErr) {
       console.error('Clinical extraction error:', extractErr);
     }

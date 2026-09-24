@@ -1,5 +1,5 @@
 import React from 'react';
-import { SlidersHorizontal, ArrowRight, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { SlidersHorizontal, ArrowRight } from 'lucide-react';
 import { BiomarkerRangeGauge } from './BiomarkerRangeGauge';
 
 /**
