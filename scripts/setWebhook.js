@@ -3,7 +3,7 @@ dotenv.config();
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
 // IMPORTANT: Replace this with your actual deployed Vercel URL
-const VERCEL_DOMAIN = process.env.VITE_APP_URL || 'https://YOUR_VERCEL_PROJECT_URL.vercel.app'; 
+const VERCEL_DOMAIN = 'https://dosiq-ai-web-app.vercel.app'; 
 const webhookUrl = `${VERCEL_DOMAIN}/api/telegram-webhook`;
 
 if (!botToken) {
