@@ -396,7 +396,6 @@ export const AuthCard = () => {
           )}
         </button>
 
-        {/* Toggle sign in / sign up */}
         <div className="mt-5 text-center text-xs text-slate-500 space-y-2">
           <div>
             {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
@@ -406,15 +405,6 @@ export const AuthCard = () => {
               className="font-bold text-emerald-700 hover:text-emerald-800 underline ml-1 transition-colors"
             >
               {isSignUp ? 'Sign In' : 'Create Account'}
-            </button>
-          </div>
-          <div>
-            <button
-              type="button"
-              onClick={() => { setShowOtpVerification(true); setAlert(null); }}
-              className="text-[11px] text-slate-400 hover:text-emerald-700 transition-colors cursor-pointer"
-            >
-              Have a verification code? <span className="underline font-medium text-emerald-600">Enter OTP</span>
             </button>
           </div>
         </div>
