@@ -296,8 +296,20 @@ export const AuthProvider = ({ children }) => {
       onboarding_completed: true,
     };
 
-    const { data: updatedSelf, error: selfError } = currentFamilyMember?.id && currentFamilyMember.id !== 'self-default'
-      ? await supabase.from('family_members').update(selfRow).eq('id', currentFamilyMember.id).select().single()
+    // Find any existing Self record for this user to guarantee update
+    let targetSelfId = (currentFamilyMember?.id && currentFamilyMember.id !== 'self-default') ? currentFamilyMember.id : null;
+    if (!targetSelfId) {
+      const { data: existingSelf } = await supabase
+        .from('family_members')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('relationship', 'Self')
+        .maybeSingle();
+      if (existingSelf?.id) targetSelfId = existingSelf.id;
+    }
+
+    const { data: updatedSelf, error: selfError } = targetSelfId
+      ? await supabase.from('family_members').update(selfRow).eq('id', targetSelfId).select().single()
       : await supabase.from('family_members').insert(selfRow).select().single();
 
     if (selfError) throw selfError;

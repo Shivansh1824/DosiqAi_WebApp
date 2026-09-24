@@ -457,7 +457,7 @@ export const OnboardingView = () => {
   }, { scope: formPanelRef });
 
   const [primary, setPrimary] = useState({
-    name: derivedName || 'Alex Sharma',
+    name: derivedName || '',
     telegram_username: '',
     phone: '',
     avatar: null,
