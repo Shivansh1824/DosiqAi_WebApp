@@ -307,11 +307,11 @@ export const TelegramPrescriptionSync = ({
                   <Zap className="w-3.5 h-3.5 text-amber-300" />
                   <span className="text-xs font-black text-white">Interactive Care Loop Simulator</span>
                   <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-400/25 text-emerald-200 border border-emerald-400/30 px-2 py-0.5 rounded-full">
-                    Hackathon Judge Mode
+                    Hack-A-Throne Judge Mode
                   </span>
                 </div>
                 <p className="text-[11px] text-emerald-100/80 leading-relaxed">
-                  <strong>For Hackathon Judges:</strong> Test real-time Telegram reminder notifications and 1-tap adherence logging right now, without waiting for the scheduled dose times ({formatTime12h(slotTimes.morning)}, {formatTime12h(slotTimes.afternoon)}, {formatTime12h(slotTimes.night)}).
+                  <strong>For Hack-A-Throne Judges:</strong> Test real-time Telegram reminder notifications and 1-tap adherence logging right now, without waiting for the scheduled dose times ({formatTime12h(slotTimes.morning)}, {formatTime12h(slotTimes.afternoon)}, {formatTime12h(slotTimes.night)}).
                 </p>
               </div>
               <button

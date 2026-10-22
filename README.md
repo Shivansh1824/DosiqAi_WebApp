@@ -1,7 +1,10 @@
 # Dosiq AI — Secure Family Medical Document Vault & Clinical Intelligence Co-Pilot
 
+> **Hackathon:** [Hack-A-Throne | National Hackathon 2026](https://unstop.com/hackathons/hack-a-throne-national-hackathon-2026-hack-a-throne-1759760)  
+> **Domain:** HealthTech & Wellbeing (Cross-Track: AI & Intelligent Systems)  
 > **Team:** VoxNexa  
-> **Category:** Healthcare & MedTech | Open Innovation
+> **Live Demo:** [dosiq-ai-web-app.vercel.app](https://dosiq-ai-web-app.vercel.app/)  
+> **Repository:** [github.com/Shivansh1824/DosiqAi_WebApp](https://github.com/Shivansh1824/DosiqAi_WebApp)
 
 ---
 
@@ -62,5 +65,5 @@ We deliberately selected a high-velocity, reliable stack designed to prevent bui
 
 - **Bot Identity:** `@dosiq_care_bot` (*Dosiq Ai- Health Assistant*)
 - **Verification Status:** **Tested & Operational.** Two-way handshake, interactive medication reminder dispatch, and real-time button callback confirmation have been validated in isolation.
-- **Application Integration:** Awaiting connection to the Supabase data model, scheduled reminder engine, and caregiver web dashboard.
+- **Application Integration:** **Fully Integrated & Live.** Connected to Supabase real-time data sync, multi-slot scheduled reminder engine (Morning/Afternoon/Night), and includes an in-app interactive Care Loop simulator for instant judge testing.
 

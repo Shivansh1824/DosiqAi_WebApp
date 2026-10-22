@@ -1,7 +1,8 @@
 # Dosiq AI Web App — Project Context & Master Specification
 
-**Team Name:** VoxNexa  
-**Category:** Healthcare & MedTech | Open Innovation
+**Hackathon:** [Hack-A-Throne | National Hackathon 2026](https://unstop.com/hackathons/hack-a-throne-national-hackathon-2026-hack-a-throne-1759760)  
+**Domain / Track:** HealthTech & Wellbeing (Cross-Track: AI & Intelligent Systems)  
+**Team Name:** VoxNexa
 
 ---
 
@@ -88,4 +89,4 @@ This project originates from the core vision of the `dosiqAi` repository, but **
 
 ---
 
-*Document finalized for Team VoxNexa — September 2026.*
+*Document finalized for Hack-A-Throne National Hackathon 2026 — Team VoxNexa.*
